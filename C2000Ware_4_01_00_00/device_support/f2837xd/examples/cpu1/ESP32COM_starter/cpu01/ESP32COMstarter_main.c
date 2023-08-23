@@ -1,7 +1,7 @@
 //#############################################################################
-// FILE:   LABstarter_main.c
+// FILE:   ESP32COMstarter_main.c
 //
-// TITLE:  Lab Starter
+// TITLE:  ESP32COM Starter
 //#############################################################################
 
 // Included Files
@@ -39,6 +39,36 @@ uint32_t numSWIcalls = 0;
 extern uint32_t numRXA;
 uint16_t UARTPrint = 0;
 uint16_t LEDdisplaynum = 0;
+
+float printLV1 = 0;
+float printLV2 = 0;
+float printLV3 = 0;
+float printLV4 = 0;
+float printLV5 = 0;
+float printLV6 = 0;
+float printLV7 = 0;
+float printLV8 = 0;
+
+float printCMD1 = 0;
+float printCMD2 = 0;
+float printCMD3 = 0;
+float printCMD4 = 0;
+float printCMD5 = 0;
+float printCMD6 = 0;
+float printCMD7 = 0;
+float printCMD8 = 0;
+float printCMD9 = 0;
+float printCMD10 = 0;
+float printCMD11 = 0;
+
+extern uint16_t NewLVData;
+extern float fromLVvalues[LVNUM_TOFROM_FLOATS];
+extern LVSendFloats_t DataToLabView;
+extern char LVsenddata[LVNUM_TOFROM_FLOATS*4+2];
+
+extern uint16_t newLinuxCommands;
+extern float LinuxCommands[CMDNUM_FROM_FLOATS];
+
 
 
 void main(void)
@@ -285,7 +315,8 @@ void main(void)
     while(1)
     {
         if (UARTPrint == 1 ) {
-			serial_printf(&SerialA,"Num Timer2:%ld Num SerialRX: %ld\r\n",CpuTimer2.InterruptCount,numRXA);
+			serial_printf(&SerialA,"%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\r\n",printLV1,printLV2,printLV3,printLV4,printLV5,printLV6,printLV7,printLV8);
+            //serial_printf(&SerialA,"%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\r\n",printCMD1,printCMD2,printCMD3,printCMD4,printCMD5,printCMD6,printCMD7,printCMD8,printCMD9,printCMD10,printCMD11);
             UARTPrint = 0;
         }
     }
@@ -318,6 +349,54 @@ __interrupt void cpu_timer0_isr(void)
     CpuTimer0.InterruptCount++;
 
     numTimer0calls++;
+
+    if (newLinuxCommands == 1) {
+        newLinuxCommands = 0;
+        printCMD1 = LinuxCommands[0];
+        printCMD2 = LinuxCommands[1];
+        printCMD3 = LinuxCommands[2];
+        printCMD4 = LinuxCommands[3];
+        printCMD5 = LinuxCommands[4];
+        printCMD6 = LinuxCommands[5];
+        printCMD7 = LinuxCommands[6];
+        printCMD8 = LinuxCommands[7];
+        printCMD9 = LinuxCommands[8];
+        printCMD10 = LinuxCommands[9];
+        printCMD11 = LinuxCommands[10];
+    }
+
+	if (NewLVData == 1) {
+		NewLVData = 0;
+		printLV1 = fromLVvalues[0];
+		printLV2 = fromLVvalues[1];
+		printLV3 = fromLVvalues[2];
+		printLV4 = fromLVvalues[3];
+		printLV5 = fromLVvalues[4];
+		printLV6 = fromLVvalues[5];
+		printLV7 = fromLVvalues[6];
+		printLV8 = fromLVvalues[7];
+	}
+
+	if((numTimer0calls%25) == 0) {
+		DataToLabView.floatData[0] = 3.0*sin(2*PI*.05*numTimer0calls*0.001);
+		DataToLabView.floatData[1] = 3.0*cos(2*PI*.05*numTimer0calls*0.001);
+		DataToLabView.floatData[2] = (float)numTimer0calls*.001;
+		DataToLabView.floatData[3] = (float)numTimer0calls*.001;
+		DataToLabView.floatData[4] = (float)numTimer0calls*.001;
+		DataToLabView.floatData[5] = (float)numTimer0calls;
+		DataToLabView.floatData[6] = (float)numTimer0calls;
+		DataToLabView.floatData[7] = (float)numTimer0calls;
+		LVsenddata[0] = '*';  // header for LVdata
+		LVsenddata[1] = '$';
+		for (int i=0;i<LVNUM_TOFROM_FLOATS*4;i++) {
+			if (i%2==0) {
+				LVsenddata[i+2] = DataToLabView.rawData[i/2] & 0xFF;
+			} else {
+				LVsenddata[i+2] = (DataToLabView.rawData[i/2]>>8) & 0xFF;
+			}
+		}
+		serial_sendSCID(&SerialD, LVsenddata, 4*LVNUM_TOFROM_FLOATS + 2);
+	}
 
 //    if ((numTimer0calls%50) == 0) {
 //        PieCtrlRegs.PIEIFR12.bit.INTx9 = 1;  // Manually cause the interrupt for the SWI
