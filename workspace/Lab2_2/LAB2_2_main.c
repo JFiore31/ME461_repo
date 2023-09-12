@@ -20,6 +20,12 @@
 #include "dsp.h"
 #include "fpu32/fpu_rfft.h"
 
+//JMF these variables are random that hold a lot of memory and slow down our code. The purpose of including them is to play around and show the importance of breakpoints in your code
+float x1 = 6.0;
+float x2 = 2.3;
+float x3 = 7.3;
+float x4 = 7.1;
+
 #define PI          3.1415926535897932384626433832795
 #define TWOPI       6.283185307179586476925286766559
 #define HALFPI      1.5707963267948966192313216916398
@@ -33,7 +39,8 @@ __interrupt void cpu_timer1_isr(void);
 __interrupt void cpu_timer2_isr(void);
 __interrupt void SWI_isr(void);
 
-// worker function predefinition
+//JMF worker function predefinition
+//C makes us predefine functions for the compiler to work on our code. This functions are defined with the information of what they actually do after the main() function
 void SetLEDRowsOnOff(int16_t rows);
 int16_t ReadSwitches(void);
 
@@ -44,7 +51,7 @@ extern uint32_t numRXA;
 uint16_t UARTPrint = 0;
 uint16_t LEDdisplaynum = 0;
 
-//new extern
+//JMF new extern variable that tells us when the code enters the cuptimer2 interrupt. This is important because we want to print to serialprint based on how many times this interrupt is entered, so we want to count it
 extern int32_t timer2IsInterrupt = 0;
 
 void main(void)
@@ -255,7 +262,9 @@ void main(void)
     // 200MHz CPU Freq,                       Period (in uSeconds)
     ConfigCpuTimer(&CpuTimer0, LAUNCHPAD_CPU_FREQUENCY, 10000);
     ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 20000);
-    ConfigCpuTimer(&CpuTimer2, LAUNCHPAD_CPU_FREQUENCY, 250000);
+    //JMF we changed timer2 frequency to be .001 s so that we can increment the IsInterrupt very quickly and show that the human eye cannot see the LEDs blink when they have a frequency faster than .005 s
+    //Because we use transistors to get this frequency, we can go to very fast rates and the limiting factor will be with the cpu
+    ConfigCpuTimer(&CpuTimer2, LAUNCHPAD_CPU_FREQUENCY, 1000);
 
     // Enable CpuTimer Interrupt bit TIE
     //comment about enabling only 2
@@ -293,6 +302,8 @@ void main(void)
     {
         if (UARTPrint == 1 ) {
 			serial_printf(&SerialA,"Num Timer2:%ld Num SerialRX: %ld\r\n",CpuTimer2.InterruptCount,numRXA);
+			//JMF This must be set back to 0 or else it would continuously print which we don't want.
+			//UARTPrint is how we make the program only print every interval we want it to. See timer2 interrupt for how it increments.
             UARTPrint = 0;
         }
     }
@@ -300,7 +311,9 @@ void main(void)
 
 // worker function calls
 void SetLEDRowsOnOff(int16_t rows){
-    //bottom row
+    //JMF starting from the bottom row and moving to the top, this set of if, else statements turns on of off the rows of LEDs based on what the rows int is past to it
+    //Because of how rows increments, this set up makes the rows "fill in" in a nice order where you can see the LED turn on "falling down" to fill the lower rows. This is achieved by using the bitwise and operator on the
+    //rows int and the associated Hex values tied to those first 4 bits that we use to control the GPASET for out GIO pins connected to the LEDs
     if((rows & 0x1) == 0x1){
         GpioDataRegs.GPASET.bit.GPIO22 = 1;
         GpioDataRegs.GPESET.bit.GPIO130 = 1;
@@ -351,6 +364,11 @@ void SetLEDRowsOnOff(int16_t rows){
 int16_t ReadSwitches(void){
     int16_t switchStatus = 0;
     // button pressed (may be different than doc)
+
+    //JMF This function uses the bitwise or operator to deliver the status of which switches are presses on our green board
+    //A less effiecent way of doing this would be to create boolean values for each button, but by using bitwise logic, we can use the last 4 bits of a 16 bit number to tell if the button is pressed or not.
+    //Each if statement corresponds to a button press since when they are open the GIO pins is not connected to ground, but when pressed it is. This is why we chose to set it == to 0 since ground is 0
+    //Once in the if statement we use the Hex value corresponding to each bit in the first 4 bits of the number to determine if those buttons are pressed (namely 1,2,4, and 8)
     if (GpioDataRegs.GPADAT.bit.GPIO4 == 0) {
         switchStatus = switchStatus | 0x1;
     }
@@ -366,6 +384,7 @@ int16_t ReadSwitches(void){
     if (GpioDataRegs.GPADAT.bit.GPIO7 == 0) {
         switchStatus = switchStatus | 0x8;
     }
+    //At the end we return the now potentially edited switvchStatus 16 bit int
     return switchStatus;
 }
 
@@ -431,16 +450,30 @@ __interrupt void cpu_timer2_isr(void)
 	// Blink LaunchPad Blue LED
     GpioDataRegs.GPATOGGLE.bit.GPIO31 = 1;
 
-    //add extern variable taking in readsitches state
-    //add if statement not allowing timer2 interruprt to increment if above variable includes buttons 2 and 3
-    //predefine variable
-    //only mask for button 2 and 3 since they are oressed in any configuration
-    timer2IsInterrupt++;
+    //JMF this is random code that is process intensive and meant to shw us how to use breakpoints. Float variables are large in storage so operating with them is difficult on the cpu, so breakpoints are helpful.
+    x4 = x3 + 2.0;
+    x3 = x4 + 1.3;
+    x1 = 9 * x2;
+    x2 = 34 * x3;
+
+    //JMF this if statement used our readswitches return value to help us determine if buttons 2 and 3 are pressed in any configuratation. We do this using bit wise and operators and the == operator.
+    //If buttons 2 and 3 are pressed in any configuration, we stop incrementing timer2IsInterrupt. This prevents the LED configuration from changing because it is also what is passed to the SetLEDRowsOnOff function
+    //This value is what we use as "rows' as I talked about in a comment above
+    //The value of the interrupts count is still stored and when the buttons are released it will go back to its normal incrementation from where it left off. This code allows you to pause incrementation though
+    if ((ReadSwitches() & 0x6) == 0x6)
+    {
+        timer2IsInterrupt = timer2IsInterrupt;
+    } else {
+        timer2IsInterrupt++;
+    }
+
     SetLEDRowsOnOff(timer2IsInterrupt);
 
     CpuTimer2.InterruptCount++;
 	
-	if ((CpuTimer2.InterruptCount % 10) == 0) {
+    //JMF this modulos is set to 100 since we are running a very fast CPU frequency. This gives us the ability to execute things on the same cpu timer, but at different rates. This means a too fast cpu cannot be a problem
+    //another solution would be to attached this if statement to a different CPU timer that was set with a lower frequency.
+	if ((CpuTimer2.InterruptCount % 100) == 0) {
 		UARTPrint = 1;
 	}
 }
