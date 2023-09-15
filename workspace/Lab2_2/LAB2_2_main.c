@@ -422,6 +422,7 @@ __interrupt void cpu_timer0_isr(void)
     if ((numTimer0calls%25) == 0) {
         displayLEDletter(LEDdisplaynum);
         LEDdisplaynum++;
+        //JMF this roll over exception is because the value can only store 2^32 bts, so it stops it from going over that
         if (LEDdisplaynum == 0xFFFF) {  // prevent roll over exception
             LEDdisplaynum = 0;
         }
@@ -467,6 +468,7 @@ __interrupt void cpu_timer2_isr(void)
         timer2IsInterrupt++;
     }
 
+    //JMF since timer2IsInterrupt increments, this allows the LEDs to cycle through their states when past to SetLEDRowsOnOff. It only does not increment when butons 2 and 3 are pressed
     SetLEDRowsOnOff(timer2IsInterrupt);
 
     CpuTimer2.InterruptCount++;

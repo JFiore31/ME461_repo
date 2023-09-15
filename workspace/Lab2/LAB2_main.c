@@ -43,7 +43,7 @@ uint32_t numSWIcalls = 0;
 extern uint32_t numRXA;
 uint16_t UARTPrint = 0;
 uint16_t LEDdisplaynum = 0;
-//HERE lab 2 extern varables
+//JMF lab 2 extern variables
 extern int32_t numTimer2calls = 0;
 //JMF Global Variable for incrementing through
 extern int16_t LEDRowsTest = 0;
@@ -304,7 +304,9 @@ void main(void)
 
 // worker function calls
 void SetLEDRowsOnOff(int16_t rows){
-    //bottom row
+    //JMF starting from the bottom row and moving to the top, this set of if, else statements turns on of off the rows of LEDs based on what the rows int is past to it
+    //Because of how rows increments, this set up makes the rows "fill in" in a nice order where you can see the LED turn on "falling down" to fill the lower rows. This is achieved by using the bitwise and operator on the
+    //rows int and the associated Hex values tied to those first 4 bits that we use to control the GPASET for out GIO pins connected to the LEDs
     if((rows & 0x1) == 0x1){
         GpioDataRegs.GPASET.bit.GPIO22 = 1;
         GpioDataRegs.GPESET.bit.GPIO130 = 1;
@@ -354,7 +356,12 @@ void SetLEDRowsOnOff(int16_t rows){
 
 int16_t ReadSwitches(void){
     int16_t switchStatus = 0;
-    // button pressed
+    // button pressed (may be different than doc)
+
+    //JMF This function uses the bitwise or operator to deliver the status of which switches are presses on our green board
+    //A less effiecent way of doing this would be to create boolean values for each button, but by using bitwise logic, we can use the last 4 bits of a 16 bit number to tell if the button is pressed or not.
+    //Each if statement corresponds to a button press since when they are open the GIO pins is not connected to ground, but when pressed it is. This is why we chose to set it == to 0 since ground is 0
+    //Once in the if statement we use the Hex value corresponding to each bit in the first 4 bits of the number to determine if those buttons are pressed (namely 1,2,4, and 8)
     if (GpioDataRegs.GPADAT.bit.GPIO4 == 0) {
         switchStatus = switchStatus | 0x1;
     }
@@ -434,13 +441,16 @@ __interrupt void cpu_timer2_isr(void)
     // Blink LaunchPad Blue LED
     GpioDataRegs.GPATOGGLE.bit.GPIO31 = 1;
 
-    //Comment HERE
+    //JMF tracks how many times the timer2interrupt is entered. This is displayed by serial_printf
     numTimer2calls++;
+    //JMF UARTPrint allows serial_printf to execute
     UARTPrint = 1;
+    //JMF used as a test variable for other code. Not curretly in use
     LEDRowsTest++;
 
+    //JMF PushButtonTest is made so that it can store the return of read switches and be passed the SetLEDRowsOnOff which requires a int16_t to be passed to it
     PushButtonTest = ReadSwitches();
-
+    //JMF now with switch status stored, that value is dont something with and sent to change the output to the LED pins
     SetLEDRowsOnOff(PushButtonTest);
 
     CpuTimer2.InterruptCount++;
