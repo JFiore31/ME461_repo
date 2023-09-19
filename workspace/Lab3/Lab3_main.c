@@ -40,7 +40,9 @@ extern uint32_t numRXA;
 uint16_t UARTPrint = 0;
 uint16_t LEDdisplaynum = 0;
 int16_t upDown = 1;
-
+int16_t upDown_2 = 1;
+float controleffort = 0;
+float controleffort2 = 0;
 //JMF predefine
 void setEPWM2A(float controleffort);
 void setEPWM2B(float controleffort);
@@ -464,19 +466,34 @@ __interrupt void cpu_timer2_isr(void)
 		UARTPrint = 1;
 	}
 
-	if (upDown == 1){
-	    EPwm12Regs.CMPA.bit.CMPA++;
-	    if (EPwm12Regs.CMPA.bit.CMPA == EPwm12Regs.TBPRD) {
-	        upDown = 0;
-	    }
-	} else {
-	    EPwm12Regs.CMPA.bit.CMPA--;
-        if (EPwm12Regs.CMPA.bit.CMPA == 0) {
-            upDown = 1;
-        }
-	}
+//	if (upDown == 1){
+//	    EPwm12Regs.CMPA.bit.CMPA++;
+//	    if (EPwm12Regs.CMPA.bit.CMPA == EPwm12Regs.TBPRD) {
+//	        upDown = 0;
+//	    }
+//	} else {
+//	    EPwm12Regs.CMPA.bit.CMPA--;
+//        if (EPwm12Regs.CMPA.bit.CMPA == 0) {
+//            upDown = 1;
+//        }
+//	}
 
+	// Exercise 2.3
+	if (upDown_2 == 1){
+	    controleffort2 = controleffort2 +0.01;
+	        if (controleffort2 > 10) {
+	            upDown_2 = 0;
+	        }
+	    } else {
+	        controleffort2 = controleffort2 - 0.01;
+	        if (controleffort2 < -10) {
+	            upDown_2 = 1;
+	        }
+	    }
+	setEPWM2A(controleffort2);
+	setEPWM2B(controleffort2);
 }
+// Exercise 2.2
 void setEPWM2A(float controleffort){
     if(controleffort > 10) {
         controleffort = 10;
@@ -487,9 +504,18 @@ void setEPWM2A(float controleffort){
     //-10 is CMPA = 0-full negative movement
     //10 is CMPA = TBPRD-full positive movement
     //0 is CMPA = .5*TBPRD-no movement
-    EPwm2Regs.CMPA.bit.CMPA = (int16_t)( (controleffort + 10) * ((float)(EPwm2Regs.TBPRD))/20)
+    EPwm2Regs.CMPA.bit.CMPA = (int16_t)((controleffort + 10) * ((float)(EPwm2Regs.TBPRD))/20);
 }
 
 void setEPWM2B(float controleffort) {
-
+    if(controleffort > 10) {
+        controleffort = 10;
+    }
+    if(controleffort < -10) {
+        controleffort = -10;
+    }
+    //-10 is CMPA = 0-full negative movement
+    //10 is CMPA = TBPRD-full positive movement
+    //0 is CMPA = .5*TBPRD-no movement
+    EPwm2Regs.CMPB.bit.CMPB = (int16_t)((controleffort + 10) * ((float)(EPwm2Regs.TBPRD))/20);
 }
