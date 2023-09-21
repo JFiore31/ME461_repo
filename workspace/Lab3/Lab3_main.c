@@ -47,6 +47,13 @@ float controleffort2 = 0;
 void setEPWM2A(float controleffort);
 void setEPWM2B(float controleffort);
 
+//Exercise 3 Predefinition
+int16_t upDown_3 = 1;
+float angle2 = 0;
+float angle = 0;
+void setEPWM8A_RCServo(float angle);
+void setEPWM8B_RCServo(float angle);
+
 void main(void)
 {
     // PLL, WatchDog, enable Peripheral Clocks
@@ -269,7 +276,7 @@ void main(void)
     // Configure CPU-Timer 0, 1, and 2 to interrupt every given period:
     // 200MHz CPU Freq,                       Period (in uSeconds)
     ConfigCpuTimer(&CpuTimer0, LAUNCHPAD_CPU_FREQUENCY, 10000);
-    ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 20000);
+    ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 125000);
     ConfigCpuTimer(&CpuTimer2, LAUNCHPAD_CPU_FREQUENCY, 1000);
 
     // Enable CpuTimer Interrupt bit TIE
@@ -294,7 +301,7 @@ void main(void)
 	// Enable SWI in the PIE: Group 12 interrupt 9
     PieCtrlRegs.PIEIER12.bit.INTx9 = 1;
 	
-	init_serialSCIB(&SerialB,115200);
+//	init_serialSCIB(&SerialB,115200);
 	init_serialSCIC(&SerialC,115200);
 	init_serialSCID(&SerialD,115200);
 
@@ -339,15 +346,15 @@ void main(void)
     //Set EPwm8 register
     EPwm8Regs.TBCTL.bit.FREE_SOFT = 2; //anything with 1x bit
     EPwm8Regs.TBCTL.bit.CTRMODE = 0;
-    EPwm8Regs.TBCTL.bit.CLKDIV = 0;
+    EPwm8Regs.TBCTL.bit.CLKDIV = 4;
     EPwm8Regs.TBCTL.bit.PHSEN = 0;
 
     EPwm8Regs.TBCTR = 0; //zero here
 
-    EPwm8Regs.TBPRD = 2500; //to set period
+    EPwm8Regs.TBPRD = 62500; //to set period
 
-    EPwm8Regs.CMPA.bit.CMPA = 0; //set duty cycle to 0
-    EPwm8Regs.CMPB.bit.CMPB = 0;
+    EPwm8Regs.CMPA.bit.CMPA = 2500; //set duty cycle to 0
+    EPwm8Regs.CMPB.bit.CMPB = 2500;
 
     EPwm8Regs.AQCTLA.bit.CAU = 1;
     EPwm8Regs.AQCTLA.bit.ZRO = 2;
@@ -359,17 +366,17 @@ void main(void)
     //Set EPwm9 register
     EPwm9Regs.TBCTL.bit.FREE_SOFT = 2; //anything with 1x bit
     EPwm9Regs.TBCTL.bit.CTRMODE = 0;
-    EPwm9Regs.TBCTL.bit.CLKDIV = 0;
+    EPwm9Regs.TBCTL.bit.CLKDIV = 1;
     EPwm9Regs.TBCTL.bit.PHSEN = 0;
 
     EPwm9Regs.TBCTR = 0; //zero here
 
     EPwm9Regs.TBPRD = 2500; //to set period
 
-    EPwm9Regs.CMPA.bit.CMPA = 0; //set duty cycle to 0
+//    EPwm9Regs.CMPA.bit.CMPA = 0; //set duty cycle to 0
 
-    EPwm9Regs.AQCTLA.bit.CAU = 1;
-    EPwm9Regs.AQCTLA.bit.ZRO = 2;
+    EPwm9Regs.AQCTLA.bit.CAU = 0; //Set to 0 to do nothing
+    EPwm9Regs.AQCTLA.bit.ZRO = 3; //Set to 0 to do nothing
 
     EPwm9Regs.TBPHS.bit.TBPHS = 0;
     //JMF this is to disable pull down resistors for power consumption purposes
@@ -450,8 +457,17 @@ __interrupt void cpu_timer0_isr(void)
 // cpu_timer1_isr - CPU Timer1 ISR
 __interrupt void cpu_timer1_isr(void)
 {
-		
-    CpuTimer1.InterruptCount++;
+    int16_t increment = 0;
+    EPwm9Regs.TBPRD = songarray[CpuTimer1.InterruptCount];
+    if(CpuTimer1.InterruptCount < SONG_LENGTH){
+        CpuTimer1.InterruptCount++;
+        increment++;
+    }
+
+    if(CpuTimer1.InterruptCount == SONG_LENGTH){
+        GPIO_SetupPinMux(16, GPIO_MUX_CPU1, 0);
+        GpioDataRegs.GPACLEAR.bit.GPIO16 = 1;
+    }
 }
 
 // cpu_timer2_isr CPU Timer2 ISR
@@ -492,6 +508,21 @@ __interrupt void cpu_timer2_isr(void)
 	    }
 	setEPWM2A(controleffort2);
 	setEPWM2B(controleffort2);
+
+	// Exercise 3
+    if (upDown_3 == 1){
+        angle2 = angle2 +0.05;
+            if (angle2 > 90) {
+                upDown_3 = 0;
+            }
+        } else {
+            angle2 = angle2 - 0.05;
+            if (angle2 < -90) {
+                upDown_3 = 1;
+            }
+        }
+    setEPWM8A_RCServo(angle2);
+    setEPWM8B_RCServo(angle2);
 }
 // Exercise 2.2
 void setEPWM2A(float controleffort){
@@ -518,4 +549,26 @@ void setEPWM2B(float controleffort) {
     //10 is CMPA = TBPRD-full positive movement
     //0 is CMPA = .5*TBPRD-no movement
     EPwm2Regs.CMPB.bit.CMPB = (int16_t)((controleffort + 10) * ((float)(EPwm2Regs.TBPRD))/20);
+}
+
+// Exercise 3
+void setEPWM8A_RCServo(float angle) {
+    if(angle > 90) {
+        angle = 90;
+    }
+    if(angle < -90) {
+        angle = -90;
+    }
+    float slope = (0.08 * (float)(EPwm8Regs.TBPRD)) / 180;
+    EPwm8Regs.CMPA.bit.CMPA = (int16_t)((slope * angle) + 0.08*(float)(EPwm8Regs.TBPRD));
+}
+void setEPWM8B_RCServo(float angle){
+    if(angle > 90) {
+        angle = 90;
+    }
+    if(angle < -90) {
+        angle = -90;
+    }
+    float slope = (0.08 * (float)(EPwm8Regs.TBPRD)) / 180;
+    EPwm8Regs.CMPB.bit.CMPB = (int16_t)((slope * angle) + 0.08*(float)(EPwm8Regs.TBPRD));
 }
