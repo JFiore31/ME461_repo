@@ -273,7 +273,7 @@ void main(void)
 	// Enable SWI in the PIE: Group 12 interrupt 9
     PieCtrlRegs.PIEIER12.bit.INTx9 = 1;
 	
-	init_serialSCIB(&SerialB,115200);
+	//init_serialSCIB(&SerialB,115200);
 	init_serialSCIC(&SerialC,115200);
 	init_serialSCID(&SerialD,115200);
     // Enable global Interrupts and higher priority real-time debug events
