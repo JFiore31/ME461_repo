@@ -457,11 +457,9 @@ __interrupt void cpu_timer0_isr(void)
 // cpu_timer1_isr - CPU Timer1 ISR
 __interrupt void cpu_timer1_isr(void)
 {
-    int16_t increment = 0;
     EPwm9Regs.TBPRD = songarray[CpuTimer1.InterruptCount];
     if(CpuTimer1.InterruptCount < SONG_LENGTH){
         CpuTimer1.InterruptCount++;
-        increment++;
     }
 
     if(CpuTimer1.InterruptCount == SONG_LENGTH){
