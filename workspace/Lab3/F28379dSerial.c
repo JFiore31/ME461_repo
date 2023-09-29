@@ -754,6 +754,8 @@ __interrupt void RXBINT_recv_ready(void)
 #ifdef _FLASH
 #pragma CODE_SECTION(RXCINT_recv_ready, ".TI.ramfunc");
 #endif
+//JMF this interrupt is edited and used to view on the oscilliscope how serial transmissions are sent to the Tera Term terminal as HIGH and LOW values
+//Corresponding to the bits that make up the characters that are sent.
 __interrupt void RXCINT_recv_ready(void)
 {
     RXCdata = ScicRegs.SCIRXBUF.all;

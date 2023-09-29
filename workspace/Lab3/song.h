@@ -22,7 +22,8 @@
 
 #define OFFNOTE 1
 
-
+//JMF this code sets the new song to the pirates of the carrabean theme song to be played on the buzzer instead of the default tone
+//We had to change the array length (SONG_LENGTH) and the order of the notes by looking at the sheet music. Note the frequency each tone is played at is 1/8 of a second
 #define SONG_LENGTH 243
 uint16_t piratesarray[SONG_LENGTH] = {
 E4NOTE,
@@ -271,6 +272,7 @@ A4NOTE,
 A4NOTE
 };
 
+//JMF old song commented out
 //uint16_t songarray[SONG_LENGTH] = {
 //A4NOTE,
 //A4NOTE,

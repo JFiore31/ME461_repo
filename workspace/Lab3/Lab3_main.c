@@ -43,14 +43,11 @@ int16_t upDown = 1;
 int16_t upDown_2 = 1;
 float controleffort = 0;
 float controleffort2 = 0;
-//JMF predefine
+//JMF predefine functions that will control the PWM signal for RC servo control. They take a float that will be mapped to the integer values allowed to control
+//The motors.
 void setEPWM2A(float controleffort);
 void setEPWM2B(float controleffort);
 
-//Ex1.4e
-int16_t adcd0result = 0;
-int16_t adcd1result = 0;
-float scaledadcd0result =0.0;
 
 //Exercise 3 Predefinition
 int16_t upDown_3 = 1;
@@ -58,31 +55,6 @@ float angle2 = 0;
 float angle = 0;
 void setEPWM8A_RCServo(float angle);
 void setEPWM8B_RCServo(float angle);
-
-
-//1.3 set functions
-//This function sets DACA to the voltage between 0V and 3V passed to this function.
-//If outside 0V to 3V the output is saturated at 0V to 3V
-//Example code
-//float myu = 2.25;
-//setDACA(myu); // DACA will now output 2.25 Volts
-void setDACA(float dacouta0) {
-    int16_t DACOutInt = 0;
-    DACOutInt = ???; // perform scaling of 0 – almost 3V to 0 - 4095
-    if (DACOutInt > 4095) DACOutInt = 4095;
-    if (DACOutInt < 0) DACOutInt = 0;
-
-    DacaRegs.DACVALS.bit.DACVALS = DACOutInt;
-}
-
-void setDACB(float dacouta1) {
-    int16_t DACOutInt = 0;
-    DACOutInt = ???; // perform scaling of 0 – almost 3V to 0 - 4095
-    if (DACOutInt > 4095) DACOutInt = 4095;
-    if (DACOutInt < 0) DACOutInt = 0;
-
-    DacbRegs.DACVALS.bit.DACVALS = DACOutInt;
-}
 
 void main(void)
 {
@@ -242,19 +214,19 @@ void main(void)
     GPIO_SetupPinMux(8, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(8, GPIO_INPUT, GPIO_PULLUP);
 
-    //JMF PWM for DC motors and H bridge
+    //JMF PWM for DC motors and H bridge PinMux setup. Set to 1 so that it is a PWM signal and not a GPIO. EPWM2A (EX 2)
     GPIO_SetupPinMux(2, GPIO_MUX_CPU1, 1);
 
-    //JMF PWM for DC motors and H bridge
+    //JMF PWM for DC motors and H bridge PinMux setup. Set to 1 so that it is a PWM signal and not a GPIO. EPWM2B (EX 2)
     GPIO_SetupPinMux(3, GPIO_MUX_CPU1, 1);
 
-    //JMF RC Servos
+    //JMF RC Servos PinMux setup. Set to 1 so that it is a PWM signal and not a GPIO. EPWM8A (EX 2)
     GPIO_SetupPinMux(14, GPIO_MUX_CPU1, 1);
 
-    //JMF RC Servos
+    //JMF RC Servos PinMux setup. Set to 1 so that it is a PWM signal and not a GPIO. EPWM8B (EX 2)
     GPIO_SetupPinMux(15, GPIO_MUX_CPU1, 1);
 
-    //JMF Noise Buzzer
+    //JMF Noise Buzzer PinMux setup. Set to 1 so that it is a PWM signal and not a GPIO. EPWM9A (EX 3)
     GPIO_SetupPinMux(16, GPIO_MUX_CPU1, 5);
 
 
@@ -294,7 +266,6 @@ void main(void)
     PieVectTable.SCIB_TX_INT = &TXBINT_data_sent;
     PieVectTable.SCIC_TX_INT = &TXCINT_data_sent;
     PieVectTable.SCID_TX_INT = &TXDINT_data_sent;
-    PieVectTable.ADCD1_INT = &ADCD_ISR;
 
     PieVectTable.EMIF_ERROR_INT = &SWI_isr;
     EDIS;    // This is needed to disable write to EALLOW protected registers
@@ -317,106 +288,6 @@ void main(void)
 
 	init_serialSCIA(&SerialA,115200);
 
-	// Ex1.1
-	EALLOW;
-	EPwm5Regs.ETSEL.bit.SOCAEN = 0; // Disable SOC on A group
-	EPwm5Regs.TBCTL.bit.CTRMODE = 3; // freeze counter
-	EPwm5Regs.ETSEL.bit.SOCASEL = 2; // Select Event when counter equal to PRD
-	EPwm5Regs.ETPS.bit.SOCAPRD = 1; // Generate pulse on 1st event (“pulse” is the same as “trigger”)
-	EPwm5Regs.TBCTR = 0x0; // Clear counter
-	EPwm5Regs.TBPHS.bit.TBPHS = 0x0000; // Phase is 0
-	EPwm5Regs.TBCTL.bit.PHSEN = 0; // Disable phase loading
-	EPwm5Regs.TBCTL.bit.CLKDIV = 0; // divide by 1 50Mhz Clock
-	EPwm5Regs.TBPRD = 50000; // Set Period to 1ms sample. Input clock is 50MHz.
-	// Notice here that we are not setting CMPA or CMPB because we are not using the PWM signal
-	EPwm5Regs.ETSEL.bit.SOCAEN = 1; //enable SOCA
-	EPwm5Regs.TBCTL.bit.CTRMODE = 0; //unfreeze, and enter up count mode
-	EDIS;
-
-	// Ex1.2 set up ADCs
-	EALLOW;
-	//write configurations for all ADCs ADCA, ADCB, ADCC, ADCD
-	AdcaRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
-	AdcbRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
-	AdccRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
-	AdcdRegs.ADCCTL2.bit.PRESCALE = 6; //set ADCCLK divider to /4
-	AdcSetMode(ADC_ADCA, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
-	AdcSetMode(ADC_ADCB, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
-	AdcSetMode(ADC_ADCC, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
-	AdcSetMode(ADC_ADCD, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE); //read calibration settings
-	//Set pulse positions to late
-	AdcaRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-	AdcbRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-	AdccRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-	AdcdRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-	//power up the ADCs
-	AdcaRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-	AdcbRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-	AdccRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-	AdcdRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-	//delay for 1ms to allow ADC time to power up
-	DELAY_US(1000);
-	//Select the channels to convert and end of conversion flag
-	//Many statements commented out, To be used when using ADCA or ADCB:
-
-	//ADCA
-//	AdcaRegs.ADCSOC0CTL.bit.CHSEL = ???; //SOC0 will convert Channel you choose Does not have to be A0
-//	AdcaRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-//	AdcaRegs.ADCSOC0CTL.bit.TRIGSEL = ???;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
-//	AdcaRegs.ADCSOC1CTL.bit.CHSEL = ???; //SOC1 will convert Channel you choose Does not have to be A1
-//	AdcaRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-//	AdcaRegs.ADCSOC1CTL.bit.TRIGSEL = ???;// EPWM5 ADCSOCA or another trigger you choose will trigger SOC1
-//	AdcaRegs.ADCINTSEL1N2.bit.INT1SEL = ???; //set to last SOC that is converted and it will set INT1 flag ADCA1
-//	AdcaRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
-//	AdcaRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
-
-	//ADCB
-	//AdcbRegs.ADCSOC0CTL.bit.CHSEL = ???; //SOC0 will convert Channel you choose Does not have to be B0
-	//AdcbRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	//AdcbRegs.ADCSOC0CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC0
-	//AdcbRegs.ADCSOC1CTL.bit.CHSEL = ???; //SOC1 will convert Channel you choose Does not have to be B1
-	//AdcbRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	//AdcbRegs.ADCSOC1CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC1
-	//AdcbRegs.ADCSOC2CTL.bit.CHSEL = ???; //SOC2 will convert Channel you choose Does not have to be B2
-	//AdcbRegs.ADCSOC2CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	//AdcbRegs.ADCSOC2CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC2
-	//AdcbRegs.ADCSOC3CTL.bit.CHSEL = ???; //SOC3 will convert Channel you choose Does not have to be B3
-	//AdcbRegs.ADCSOC3CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	//AdcbRegs.ADCSOC3CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA or another trigger you choose will trigger SOC3
-	//AdcbRegs.ADCINTSEL1N2.bit.INT1SEL = ???; //set to last SOC that is converted and it will set INT1 flag ADCB1
-	//AdcbRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
-	//AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
-
-	//ADCD
-	AdcdRegs.ADCSOC0CTL.bit.CHSEL = ???; // set SOC0 to convert pin D0
-	AdcdRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	AdcdRegs.ADCSOC0CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC0
-	AdcdRegs.ADCSOC1CTL.bit.CHSEL = ???; //set SOC1 to convert pin D1
-	AdcdRegs.ADCSOC1CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	AdcdRegs.ADCSOC1CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC1
-	//AdcdRegs.ADCSOC2CTL.bit.CHSEL = ???; //set SOC2 to convert pin D2
-	//AdcdRegs.ADCSOC2CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	//AdcdRegs.ADCSOC2CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC2
-	//AdcdRegs.ADCSOC3CTL.bit.CHSEL = ???; //set SOC3 to convert pin D3
-	//AdcdRegs.ADCSOC3CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
-	//AdcdRegs.ADCSOC3CTL.bit.TRIGSEL = ???; // EPWM5 ADCSOCA will trigger SOC3
-	AdcdRegs.ADCINTSEL1N2.bit.INT1SEL = ???; //set to SOC1, the last converted, and it will set INT1 flag ADCD1
-	AdcdRegs.ADCINTSEL1N2.bit.INT1E = 1; //enable INT1 flag
-	AdcdRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
-	EDIS;
-
-	//1.3 Set up DACs
-	// Enable DACA and DACB outputs
-	EALLOW;
-	ME 461 5
-	DacaRegs.DACOUTEN.bit.DACOUTEN = 1; //enable dacA output-->uses ADCINA0
-	DacaRegs.DACCTL.bit.LOADMODE = 0; //load on next sysclk
-	DacaRegs.DACCTL.bit.DACREFSEL = 1; //use ADC VREF as reference voltage
-	DacbRegs.DACOUTEN.bit.DACOUTEN = 1; //enable dacB output-->uses ADCINA1
-	DacbRegs.DACCTL.bit.LOADMODE = 0; //load on next sysclk
-	DacbRegs.DACCTL.bit.DACREFSEL = 1; //use ADC VREF as reference voltage
-	EDIS;
-
     // Enable CPU int1 which is connected to CPU-Timer 0, CPU int13
     // which is connected to CPU-Timer 1, and CPU int 14, which is connected
     // to CPU-Timer 2:  int 12 is for the SWI.  
@@ -431,87 +302,91 @@ void main(void)
     PieCtrlRegs.PIEIER1.bit.INTx7 = 1;
 	// Enable SWI in the PIE: Group 12 interrupt 9
     PieCtrlRegs.PIEIER12.bit.INTx9 = 1;
-    //1.4d
-    PieCtrlRegs.PIEIER6.bit.INTx1 = 1;
 
 //	init_serialSCIB(&SerialB,115200);
 	init_serialSCIC(&SerialC,115200);
 	init_serialSCID(&SerialD,115200);
 
 	//JMF here we will set up the registers for the EPWM pin fields
-	//Set EPwm12 register
-	EPwm12Regs.TBCTL.bit.FREE_SOFT = 2; //anything with 1x bit
-	EPwm12Regs.TBCTL.bit.CTRMODE = 0;
-	EPwm12Regs.TBCTL.bit.CLKDIV = 0;
-	EPwm12Regs.TBCTL.bit.PHSEN = 0;
+    //We begin by setting the bit registers in out EPWM pins. These registers allow us to tell the processor what the period is, what the frequency divisor is
+    //What to do when the count equals the period, etc.
+	//It is required to have the technical reference to set these. On this table, values are given in binary as to what setting corresponds to what mode for each
+	//register bit(s). We enter the decimal equivalent to set this on the right side of the equal sign.
 
-	EPwm12Regs.TBCTR = 0; //zero here
+	//JMF Set EPwm12 register to dim and brighten the LED in exercise 1
+	EPwm12Regs.TBCTL.bit.FREE_SOFT = 2; //JMF anything with 1x bit (stop when counter completes a whole cycle)
+	EPwm12Regs.TBCTL.bit.CTRMODE = 0; //JMF this sets to control up mode which tells the counter to go up every clock cycle
+	EPwm12Regs.TBCTL.bit.CLKDIV = 0; //JMF this value determines if the input frequency will be divided by a value. We chose 1 since we want to 50 MHz Freq.
+	EPwm12Regs.TBCTL.bit.PHSEN = 0; //JMF count down after the synchronization event
 
-	EPwm12Regs.TBPRD = 2500; //to set period
+	EPwm12Regs.TBCTR = 0; //JMF sets the counter bit field to 0 to start before counting
+
+	EPwm12Regs.TBPRD = 2500; //JMF to set period that the counter will count to
 
 	EPwm12Regs.CMPA.bit.CMPA = 0; //set duty cycle to 0
 
-	EPwm12Regs.AQCTLA.bit.CAU = 1;
-    EPwm12Regs.AQCTLA.bit.ZRO = 2;
+	EPwm12Regs.AQCTLA.bit.CAU = 1; //JMF Tells the processor what to do when TBCTR = CMPA. In this case we chose to clear and set the EPWM value to LOW.
+    EPwm12Regs.AQCTLA.bit.ZRO = 2; //JMF tell the processor what to do when TBCTR - 0. In this case we chose to set the EPWM value to HIGH.
 
-    EPwm12Regs.TBPHS.bit.TBPHS = 0;
+    EPwm12Regs.TBPHS.bit.TBPHS = 0; //JMF sets the signal phase to 0. not sure if necessary
 
-    //Set EPwm2 register 2a right, 2b left
+    //JMF Set EPwm2 register 2a right, 2b left for exercise 2 DC motors
     EPwm2Regs.TBCTL.bit.FREE_SOFT = 2; //anything with 1x bit
-    EPwm2Regs.TBCTL.bit.CTRMODE = 0;
-    EPwm2Regs.TBCTL.bit.CLKDIV = 0;
-    EPwm2Regs.TBCTL.bit.PHSEN = 0;
+    EPwm2Regs.TBCTL.bit.CTRMODE = 0;  //JMF this sets to control up mode which tells the counter to go up every clock cycle
+    EPwm2Regs.TBCTL.bit.CLKDIV = 0; //JMF this value determines if the input frequency will be divided by a value. We chose 1 since we want to 50 MHz Freq.
+    EPwm2Regs.TBCTL.bit.PHSEN = 0; //JMF count down after the synchronization event
 
-    EPwm2Regs.TBCTR = 0; //zero here
+    EPwm2Regs.TBCTR = 0; //JMF sets the counter bit field to 0 to start before counting
 
-    EPwm2Regs.TBPRD = 2500; //to set period
+    EPwm2Regs.TBPRD = 2500; //JMF to set period that the counter will count to
 
     EPwm2Regs.CMPA.bit.CMPA = 0; //set duty cycle to 0
-    EPwm2Regs.CMPB.bit.CMPB = 0;
+    EPwm2Regs.CMPB.bit.CMPB = 0; //JMF also set 0 duty cycle for compare to B
 
-    EPwm2Regs.AQCTLA.bit.CAU = 1;
-    EPwm2Regs.AQCTLA.bit.ZRO = 2;
-    EPwm2Regs.AQCTLB.bit.CBU = 1;
-    EPwm2Regs.AQCTLB.bit.ZRO = 2;
+    EPwm2Regs.AQCTLA.bit.CAU = 1; //JMF Tells the processor what to do when TBCTR = CMPA. In this case we chose to clear and set the EPWM value to LOW.
+    EPwm2Regs.AQCTLA.bit.ZRO = 2; //JMF tell the processor what to do when TBCTR - 0. In this case we chose to set the EPWM value to HIGH.
+    EPwm2Regs.AQCTLB.bit.CBU = 1; //JMF Tells the processor what to do when TBCTR = CMPA. In this case we chose to clear and set the EPWM value to LOW.
+    EPwm2Regs.AQCTLB.bit.ZRO = 2; //JMF tell the processor what to do when TBCTR - 0. In this case we chose to set the EPWM value to HIGH.
 
-    EPwm2Regs.TBPHS.bit.TBPHS = 0;
+    EPwm2Regs.TBPHS.bit.TBPHS = 0; //JMF sets the signal phase to 0. not sure if necessary
 
-    //Set EPwm8 register
+    //JMF Set EPwm8 register for Exercise 2 servos
     EPwm8Regs.TBCTL.bit.FREE_SOFT = 2; //anything with 1x bit
-    EPwm8Regs.TBCTL.bit.CTRMODE = 0;
-    EPwm8Regs.TBCTL.bit.CLKDIV = 4;
-    EPwm8Regs.TBCTL.bit.PHSEN = 0;
+    EPwm8Regs.TBCTL.bit.CTRMODE = 0;  //JMF this sets to control up mode which tells the counter to go up every clock cycle
+    EPwm8Regs.TBCTL.bit.CLKDIV = 4; //JMF this value determines if the input frequency will be divided by a value. We chose 16 since we want to 50/16 MHz Freq.
+    EPwm8Regs.TBCTL.bit.PHSEN = 0; //JMF count down after the synchronization event
 
-    EPwm8Regs.TBCTR = 0; //zero here
+    EPwm8Regs.TBCTR = 0; //JMF sets the counter bit field to 0 to start before counting
 
-    EPwm8Regs.TBPRD = 62500; //to set period
+    EPwm8Regs.TBPRD = 62500; //JMF to set period that the counter will count to
 
-    EPwm8Regs.CMPA.bit.CMPA = 2500; //set duty cycle to 0
-    EPwm8Regs.CMPB.bit.CMPB = 2500;
+    EPwm8Regs.CMPA.bit.CMPA = 2500; //JMF set duty cycle to 0 different then before because the mapping is different due to CLKDIV
+    EPwm8Regs.CMPB.bit.CMPB = 2500; //JMF set duty cycle to 0 different then before because the mapping is different due to CLKDIV
 
-    EPwm8Regs.AQCTLA.bit.CAU = 1;
-    EPwm8Regs.AQCTLA.bit.ZRO = 2;
-    EPwm8Regs.AQCTLB.bit.CBU = 1;
-    EPwm8Regs.AQCTLB.bit.ZRO = 2;
+    EPwm8Regs.AQCTLA.bit.CAU = 1; //JMF Tells the processor what to do when TBCTR = CMPA. In this case we chose to clear and set the EPWM value to LOW.
+    EPwm8Regs.AQCTLA.bit.ZRO = 2; //JMF tell the processor what to do when TBCTR - 0. In this case we chose to set the EPWM value to HIGH.
+    EPwm8Regs.AQCTLB.bit.CBU = 1; //JMF Tells the processor what to do when TBCTR = CMPA. In this case we chose to clear and set the EPWM value to LOW.
+    EPwm8Regs.AQCTLB.bit.ZRO = 2; //JMF tell the processor what to do when TBCTR - 0. In this case we chose to set the EPWM value to HIGH.
 
-    EPwm8Regs.TBPHS.bit.TBPHS = 0;
+    EPwm8Regs.TBPHS.bit.TBPHS = 0; //JMF sets the signal phase to 0. not sure if necessary
 
-    //Set EPwm9 register
+    //JMF Set EPwm9 register for buzzer exercise 3
     EPwm9Regs.TBCTL.bit.FREE_SOFT = 2; //anything with 1x bit
-    EPwm9Regs.TBCTL.bit.CTRMODE = 0;
-    EPwm9Regs.TBCTL.bit.CLKDIV = 1;
-    EPwm9Regs.TBCTL.bit.PHSEN = 0;
+    EPwm9Regs.TBCTL.bit.CTRMODE = 0; //JMF this sets to control up mode which tells the counter to go up every clock cycle
+    EPwm9Regs.TBCTL.bit.CLKDIV = 1; //JMF this value determines if the input frequency will be divided by a value. We chose 2 since we want to 25 MHz Freq.
+    EPwm9Regs.TBCTL.bit.PHSEN = 0; //JMF count down after the synchronization event
 
-    EPwm9Regs.TBCTR = 0; //zero here
+    EPwm9Regs.TBCTR = 0; //JMF sets the counter bit field to 0 to start before counting
 
-    EPwm9Regs.TBPRD = 2500; //to set period
+    EPwm9Regs.TBPRD = 2500; //JMF to set period that the counter will count to
 
 //    EPwm9Regs.CMPA.bit.CMPA = 0; //set duty cycle to 0
 
     EPwm9Regs.AQCTLA.bit.CAU = 0; //Set to 0 to do nothing
-    EPwm9Regs.AQCTLA.bit.ZRO = 3; //Set to 0 to do nothing
+    EPwm9Regs.AQCTLA.bit.ZRO = 3; //JMF set to 3 to toggle the LOW or HIGH output of the PMW. This is to show on the oscilliscope the operation signal
 
-    EPwm9Regs.TBPHS.bit.TBPHS = 0;
+    EPwm9Regs.TBPHS.bit.TBPHS = 0; //JMF sets the signal phase to 0. not sure if necessary
+
     //JMF this is to disable pull down resistors for power consumption purposes
     EALLOW; // Below are protected registers
     GpioCtrlRegs.GPAPUD.bit.GPIO2 = 1; // For EPWM2A
@@ -587,24 +462,6 @@ __interrupt void cpu_timer0_isr(void)
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
 }
 
-//E1.4
-//adcd1 pie interrupt
-__interrupt void ADCD_ISR (void) {
-    adcd0result = AdcdResultRegs.ADCRESULT0;
-    adcd1result = AdcdResultRegs.ADCRESULT1;
-
-    // Here covert ADCIND0 to volts
-    scaledadcd0result = (3.0/4096.0)*adcd0result
-    // Here write voltages value to DACA
-
-    // Print ADCIND0’s voltage value to TeraTerm every 100ms
-
-    AdcdRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //clear interrupt flag
-    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
-}
-
-
-
 // cpu_timer1_isr - CPU Timer1 ISR
 __interrupt void cpu_timer1_isr(void)
 {
@@ -633,6 +490,10 @@ __interrupt void cpu_timer2_isr(void)
 		UARTPrint = 1;
 	}
 
+	//Exercise 1
+	//JMF this code is made to dim and brighten the LED on the breadboard
+	//We have made a state machine that when we are counting up (upDown variable) will increment until we reach the period of the EPWM register
+	//Once we reach this period, we will count back down then dimming the LED. This creates a saw tooth graph of LED brightness versus time.
 //	if (upDown == 1){
 //	    EPwm12Regs.CMPA.bit.CMPA++;
 //	    if (EPwm12Regs.CMPA.bit.CMPA == EPwm12Regs.TBPRD) {
@@ -645,7 +506,11 @@ __interrupt void cpu_timer2_isr(void)
 //        }
 //	}
 
-	// Exercise 2.3
+	// JMF Exercise 2.3
+	//similar to brightening and dimming the LED, this function counts up and down in a state machine to control the wheel speed and direction from full forward
+	//to full backward in a linear progression and regression. the setEPWMxx functions are used to do this and the added logic in this function is the upDown2
+	//variable that is used in the state machine that is incremented or decremented
+	//We notice due to motor lag this is not as linear input to output as the LED
 	if (upDown_2 == 1){
 	    controleffort2 = controleffort2 +0.01;
 	        if (controleffort2 > 10) {
@@ -661,6 +526,9 @@ __interrupt void cpu_timer2_isr(void)
 	setEPWM2B(controleffort2);
 
 	// Exercise 3
+	//JMF this state machine is made to make the DC servos go back and forth between their max 90 degrees and min -90 degrees orientations
+	//It is similar to the LED dimming/brightening and the motor Full Speed forward/backward increment and decrement logic
+	//We used a variable upDown_3 to do this
     if (upDown_3 == 1){
         angle2 = angle2 +0.05;
             if (angle2 > 90) {
@@ -675,7 +543,9 @@ __interrupt void cpu_timer2_isr(void)
     setEPWM8A_RCServo(angle2);
     setEPWM8B_RCServo(angle2);
 }
-// Exercise 2.2
+// JMF Exercise 2.2
+//This function takes in a float value between 10 and -10 to set the percentage of the RC servo connected to the wheels speed and direction. Negative values are reverse
+//We have to map this float value to the range of bits that can be passed to the EPWM CMPA value. TO do this, we had to cast the float to a 16 bit int correctly after mapping
 void setEPWM2A(float controleffort){
     if(controleffort > 10) {
         controleffort = 10;
@@ -683,12 +553,15 @@ void setEPWM2A(float controleffort){
     if(controleffort < -10) {
         controleffort = -10;
     }
+    //JMF
     //-10 is CMPA = 0-full negative movement
     //10 is CMPA = TBPRD-full positive movement
     //0 is CMPA = .5*TBPRD-no movement
     EPwm2Regs.CMPA.bit.CMPA = (int16_t)((controleffort + 10) * ((float)(EPwm2Regs.TBPRD))/20);
 }
 
+//This function takes in a float value between 10 and -10 to set the percentage of the RC servo connected to the wheels speed and direction. Negative values are reverse
+//We have to map this float value to the range of bits that can be passed to the EPWM CMPA value. TO do this, we had to cast the float to a 16 bit int correctly after mapping
 void setEPWM2B(float controleffort) {
     if(controleffort > 10) {
         controleffort = 10;
@@ -696,6 +569,7 @@ void setEPWM2B(float controleffort) {
     if(controleffort < -10) {
         controleffort = -10;
     }
+    //JMF
     //-10 is CMPA = 0-full negative movement
     //10 is CMPA = TBPRD-full positive movement
     //0 is CMPA = .5*TBPRD-no movement
@@ -703,6 +577,8 @@ void setEPWM2B(float controleffort) {
 }
 
 // Exercise 3
+//JMF this function is used to set the angle at which we want the RC servos to go to. They can travel form -90 to 90 degrees which we take as an input float
+//We must map this float to the CMPA 16 bit integer to do this since CMPA is a bit field and doesn't accept a float
 void setEPWM8A_RCServo(float angle) {
     if(angle > 90) {
         angle = 90;
@@ -710,9 +586,12 @@ void setEPWM8A_RCServo(float angle) {
     if(angle < -90) {
         angle = -90;
     }
+    //JMF linear mapping logic
     float slope = (0.08 * (float)(EPwm8Regs.TBPRD)) / 180;
     EPwm8Regs.CMPA.bit.CMPA = (int16_t)((slope * angle) + 0.08*(float)(EPwm8Regs.TBPRD));
 }
+//JMF this function is used to set the angle at which we want the RC servos to go to. They can travel form -90 to 90 degrees which we take as an input float
+//We must map this float to the CMPA 16 bit integer to do this since CMPA is a bit field and doesn't accept a float
 void setEPWM8B_RCServo(float angle){
     if(angle > 90) {
         angle = 90;
@@ -720,6 +599,7 @@ void setEPWM8B_RCServo(float angle){
     if(angle < -90) {
         angle = -90;
     }
+    //JMF linear mapping logic
     float slope = (0.08 * (float)(EPwm8Regs.TBPRD)) / 180;
     EPwm8Regs.CMPB.bit.CMPB = (int16_t)((slope * angle) + 0.08*(float)(EPwm8Regs.TBPRD));
 }
