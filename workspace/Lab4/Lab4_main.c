@@ -25,13 +25,15 @@
 #define HALFPI      1.5707963267948966192313216916398
 // The Launchpad's CPU Frequency set to 200 you should not change this value
 #define LAUNCHPAD_CPU_FREQUENCY 200
-
+//JMF this defined value tells us how many coefficents we will be using to filter our signal in later steps
+#define SIZEOFARRAY 22
 
 // Interrupt Service Routines predefinition
 __interrupt void cpu_timer0_isr(void);
 __interrupt void cpu_timer1_isr(void);
 __interrupt void cpu_timer2_isr(void);
 __interrupt void SWI_isr(void);
+//JMF here we are predefining the interrupts that will trigger when the ADC finishes converting a value for us from analog to discrete
 __interrupt void ADCD_ISR (void);
 __interrupt void ADCA_ISR (void);
 __interrupt void ADCB_ISR (void);
@@ -42,34 +44,49 @@ extern uint32_t numRXA;
 uint16_t UARTPrint = 0;
 uint16_t LEDdisplaynum = 0;
 //Ex1.4e
+//JMF these variables are used to hold the discrete value that adcd's soc 0 and 1 converts. We need to pull these values from their bit fields because we need to map them to volts
 int16_t adcd0result = 0;
 int16_t adcd1result = 0;
 
 //ex3
+//JMF these variables are used to hold the discrete value that adca's soc 0 and 1 converts. We need to pull these values from their bit fields because we need to map them to volts
 int16_t adca0result = 0;
 int16_t adca1result = 0;
 
 // ex4
+//JMF these variables are used to hold the discrete value that adcb's soc 0 converts. We need to pull this value from its bit field because we need to map them to volts
 int16_t adcb0result = 0;
 
-float scaledadcd0result =0.0;
+//JMF used to print ADCIND1 to tera term. Mapped variable from the bit held in the results bit field
+float ADCIND1Volts = 0.0;
+//JMF first variable used to map the bit number to volts for some input signal
+float scaledadcd0result = 0.0;
+
+//JMF these count variables will be used to track how many times the interrupts are entered for each ACD. We record this to time how often we print values to terra term
 int32_t ADCD1_count = 0;
 int32_t ADCA1_count = 0;
 int32_t ADCB1_count = 0;
+
 //Ex 2 predefinition of variables for print
-//yk is the filter value
+//JMF yk is the filtered value of our signal using a simple average filter
 float yk = 0;
+
 //ex 3
+//JMF yk1 and yk2 are the mapped and filtered voltage values of the x and y directions given by the joystick
 float yk1 = 0.0;
 float yk2 = 0.0;
+//ex4
+//JMF yk3 is the filtered output of the voice signal given to the microphone
 float yk3 = 0.0;
-//to print ADCIND1 to tera term
-float ADCIND1Volts = 0.0;
-#define SIZEOFARRAY 22
+
+//JMF initial array used for 5 term filtering. all set to .2 since this gives us the average of the signal
 //float b[SIZEOFARRAY] = {0.2,0.2,0.2,0.2,0.2}; // 0.2 is 1/5th therefore a 5 point average
-//copied from Matlab
-//b = fir1(21,75/500) arraytoCformat(b) is the code for how we get the output b array
+//JMF initial array used for 5 term filtering. We used MATLAB to get coeffiecents that give us a cut off frequency of 50Hz. MATLAB code: b = fir1(5,.1) arraytoCformat(b)
+//in fir1 function, .1 refers to 10% of the Nyquist frequency which is 500 since the sample rate is 1000 Hz
 //float b[SIZEOFARRAY]={    3.3833240118424500e-02, 2.4012702387971543e-01, 4.5207947200372001e-01, 2.4012702387971543e-01, 3.3833240118424500e-02};
+
+//JMF new MATLAB code given to give filtering coeffiecents for 21 term filter. This is a better low pass filter than 5 terms.
+//b = fir1(21,75/500) arraytoCformat(b) is the code for how we get the output b array
 float b[22]={   -2.3890045153263611e-03,
     -3.3150057635348224e-03,
     -4.6136191242627002e-03,
@@ -92,12 +109,16 @@ float b[22]={   -2.3890045153263611e-03,
     -4.6136191242627002e-03,
     -3.3150057635348224e-03,
     -2.3890045153263611e-03};
-//for 21st order
+//JMF for 21st order. This array will store the last 21 scaled to volt values from the ADC that will be filtered by their respective weights given in b[].
+//Note that setting the first 5 values to 0 is usually requred, but since the first value moves along the array, putting just the 0th value as 0 will eventually fill the entire array, but usally
+//we would have to set them all to 0 after declaring the array
 float xk_n[SIZEOFARRAY] = {0,0,0,0,0};
 //ex 3
+//JMF scaled volt value array for storing the values of how mucht he joystick is in the X direction and Y direction
 float dim1[SIZEOFARRAY] = {0,0,0,0,0};
 float dim2[SIZEOFARRAY] = {0,0,0,0,0};
 //ex4
+//JMF scaled volt value array that hold the values of the sound waves passed to the ADCB by the micrphone
 float sound[SIZEOFARRAY] = {0};
 
 void main(void)
@@ -295,6 +316,7 @@ void main(void)
     PieVectTable.SCIB_TX_INT = &TXBINT_data_sent;
     PieVectTable.SCIC_TX_INT = &TXCINT_data_sent;
     PieVectTable.SCID_TX_INT = &TXDINT_data_sent;
+    //JMF these next 3 lines tell the code to add the interrupts for ADCD, ADCA, and ADCB to the PIE table. This basically gives them the ability to have priority that they can execute their work on the processor.
 //    PieVectTable.ADCD1_INT =&ADCD_ISR;
    // PieVectTable.ADCA1_INT = &ADCA_ISR;
     PieVectTable.ADCB1_INT = &ADCB_ISR;
@@ -321,6 +343,8 @@ void main(void)
 	init_serialSCIA(&SerialA,115200);
 
     // Ex1.1
+	//JMF instead of using the cpu timers to determine the period of how often the ADC will do its job, we want to use a PWM pin to do this. Here we are setting up EPWM 5 with a period value
+	//that we determine is fitting for our ADCs to sample at. the input clock is set at 50 MHz, so we use the TBPRD counting bit field to determine the time span between samples
     EALLOW;
     EPwm5Regs.ETSEL.bit.SOCAEN = 0; // Disable SOC on A group
     EPwm5Regs.TBCTL.bit.CTRMODE = 3; // freeze counter
@@ -365,6 +389,9 @@ void main(void)
     //Select the channels to convert and end of conversion flag
     //Many statements commented out, To be used when using ADCA or ADCB:
 
+    //sets up ADCs in the way we want. Not the channels are determined by where periferals are hooked up to the board while the SOC are always 0 and 1 since we want to use the first priorities in the list
+    //trigsel is for determining how often they will run and we use EPWM5 which is pin 13
+    //we must flag and clear to tell the interrupt that the ADC has a new value and is ready to send it
     //ADCA
     AdcaRegs.ADCSOC0CTL.bit.CHSEL = 2; //SOC0 will convert Channel you choose Does not have to be A0
     AdcaRegs.ADCSOC0CTL.bit.ACQPS = 99; //sample window is acqps + 1 SYSCLK cycles = 500ns
@@ -432,6 +459,7 @@ void main(void)
     IER |= M_INT13;
     IER |= M_INT14;
 
+    //turns on the ADC to the correct A B or D one to use?
     // Enable TINT0 in the PIE: Group 1 interrupt 7
     PieCtrlRegs.PIEIER1.bit.INTx7 = 1;
 	// Enable SWI in the PIE: Group 12 interrupt 9
@@ -457,6 +485,7 @@ void main(void)
     while(1)
     {
         if (UARTPrint == 1 ) {
+            //prints the useful information from our filter that is then also shown on the oscilliscope as a reconstructed waveform after using setDAC()
 			//serial_printf(&SerialA,"Num Timer2:%ld Num SerialRX: %ld\r\n",CpuTimer2.InterruptCount,numRXA);
             //serial_printf(&SerialA,"Channel 1: %.3f, Channel 0: %.3f\r\n",ADCIND1Volts,yk);
             //yk2 is Y direction, yk1 is X direction
@@ -523,6 +552,7 @@ __interrupt void cpu_timer0_isr(void)
 //Example code
 //float myu = 2.25;
 //setDACA(myu); // DACA will now output 2.25 Volts
+//they are used to turn the digital signal we have recieved and filtered back into a analog one so that we can show the signal on the oscilliscope
 void setDACA(float dacouta0) {
     int16_t DACOutInt = 0;
     DACOutInt = (4096.0/3.0)*dacouta0; // perform scaling of 0 – almost 3V to 0 - 4095
@@ -650,7 +680,7 @@ __interrupt void ADCB_ISR (void) {
     adcb0result = AdcbResultRegs.ADCRESULT0;
     // Here covert ADCIND0, ADCIND1 to volts
     sound[0] = (3.0/4096.0)*adcb0result;
-
+//need to filter next
 //    for(int i = 0; i < SIZEOFARRAY; i++) {
 //        yk3 += b[i]*sound[i];
 //    }
@@ -661,6 +691,7 @@ __interrupt void ADCB_ISR (void) {
 
 
 // Here write yk1 to DACA channel and yk2 to DACB channel
+    //input will be changed t yk3 once we filter signal and need to view on OScope
     setDACA(sound[0]);
 
 // Print ADCIND0 and ADCIND1’s voltage value to TeraTerm every 100ms
