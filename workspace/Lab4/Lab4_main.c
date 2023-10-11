@@ -25,8 +25,8 @@
 #define HALFPI      1.5707963267948966192313216916398
 // The Launchpad's CPU Frequency set to 200 you should not change this value
 #define LAUNCHPAD_CPU_FREQUENCY 200
-//JMF this defined value tells us how many coefficents we will be using to filter our signal in later steps
-#define SIZEOFARRAY 22
+//JMF this defined value tells us how many coefficents we will be using to filter our signal in later steps. It is 22 terms in Ex2 and 31 in Ex4
+#define SIZEOFARRAY 31
 
 // Interrupt Service Routines predefinition
 __interrupt void cpu_timer0_isr(void);
@@ -85,41 +85,86 @@ float yk3 = 0.0;
 //in fir1 function, .1 refers to 10% of the Nyquist frequency which is 500 since the sample rate is 1000 Hz
 //float b[SIZEOFARRAY]={    3.3833240118424500e-02, 2.4012702387971543e-01, 4.5207947200372001e-01, 2.4012702387971543e-01, 3.3833240118424500e-02};
 
-//JMF new MATLAB code given to give filtering coeffiecents for 21 term filter. This is a better low pass filter than 5 terms.
+//JMF new MATLAB code given to give filtering coeffiecents for 21 term filter. This is a better low pass filter than 5 terms and used in EX2 and EX3
 //b = fir1(21,75/500) arraytoCformat(b) is the code for how we get the output b array
-float b[22]={   -2.3890045153263611e-03,
-    -3.3150057635348224e-03,
-    -4.6136191242627002e-03,
-    -4.1659855521681268e-03,
-    1.4477422497795286e-03,
-    1.5489414225159667e-02,
-    3.9247886844071371e-02,
-    7.0723964095458614e-02,
-    1.0453473887246176e-01,
-    1.3325672639406205e-01,
-    1.4978314227429904e-01,
-    1.4978314227429904e-01,
-    1.3325672639406205e-01,
-    1.0453473887246176e-01,
-    7.0723964095458614e-02,
-    3.9247886844071371e-02,
-    1.5489414225159667e-02,
-    1.4477422497795286e-03,
-    -4.1659855521681268e-03,
-    -4.6136191242627002e-03,
-    -3.3150057635348224e-03,
-    -2.3890045153263611e-03};
+//float b[22]={   -2.3890045153263611e-03,
+//    -3.3150057635348224e-03,
+//    -4.6136191242627002e-03,
+//    -4.1659855521681268e-03,
+//    1.4477422497795286e-03,
+//    1.5489414225159667e-02,
+//    3.9247886844071371e-02,
+//    7.0723964095458614e-02,
+//    1.0453473887246176e-01,
+//    1.3325672639406205e-01,
+//    1.4978314227429904e-01,
+//    1.4978314227429904e-01,
+//    1.3325672639406205e-01,
+//    1.0453473887246176e-01,
+//    7.0723964095458614e-02,
+//    3.9247886844071371e-02,
+//    1.5489414225159667e-02,
+//    1.4477422497795286e-03,
+//    -4.1659855521681268e-03,
+//    -4.6136191242627002e-03,
+//    -3.3150057635348224e-03,
+//    -2.3890045153263611e-03};
 //JMF for 21st order. This array will store the last 21 scaled to volt values from the ADC that will be filtered by their respective weights given in b[].
 //Note that setting the first 5 values to 0 is usually requred, but since the first value moves along the array, putting just the 0th value as 0 will eventually fill the entire array, but usally
 //we would have to set them all to 0 after declaring the array
 float xk_n[SIZEOFARRAY] = {0,0,0,0,0};
+
 //ex 3
 //JMF scaled volt value array for storing the values of how mucht he joystick is in the X direction and Y direction
 float dim1[SIZEOFARRAY] = {0,0,0,0,0};
 float dim2[SIZEOFARRAY] = {0,0,0,0,0};
+
 //ex4
 //JMF scaled volt value array that hold the values of the sound waves passed to the ADCB by the micrphone
 float sound[SIZEOFARRAY] = {0};
+//JMF This array stores the filtering coeffiecents for a 31st order low pass filter with a cutoff frequency of 500Hz. The MATLAB function used was b=fir1(31,.25)
+float b[32]={   -6.3046914864397922e-04,
+    -1.8185681242784432e-03,
+    -2.5619416124584822e-03,
+    -1.5874939943956356e-03,
+    2.3695126689747326e-03,
+    8.3324969783531780e-03,
+    1.1803612855040625e-02,
+    6.7592967793297151e-03,
+    -9.1745119977290398e-03,
+    -2.9730906886035850e-02,
+    -3.9816452266421651e-02,
+    -2.2301647638687881e-02,
+    3.1027965907247105e-02,
+    1.1114350049251465e-01,
+    1.9245540210070616e-01,
+    2.4373020388648489e-01,
+    2.4373020388648489e-01,
+    1.9245540210070616e-01,
+    1.1114350049251465e-01,
+    3.1027965907247105e-02,
+    -2.2301647638687881e-02,
+    -3.9816452266421651e-02,
+    -2.9730906886035850e-02,
+    -9.1745119977290398e-03,
+    6.7592967793297151e-03,
+    1.1803612855040625e-02,
+    8.3324969783531780e-03,
+    2.3695126689747326e-03,
+    -1.5874939943956356e-03,
+    -2.5619416124584822e-03,
+    -1.8185681242784432e-03,
+    -6.3046914864397922e-04};
+//JMF lastly, this array stores the filtering coeffiecents for a Bandpass filter that allows frequencies between 1750 and 2250 Hz through.
+//This is because we want to locate a 2000 Hz signal. We chose a 31 coeffiecent filter to do this. The Matlab function was bandPass=fir1(31,[.35,.45])
+float bandPass[32]={    2.3965465579347959e-03, 3.3525635532227322e-03, -2.0228406077944785e-03,    -1.0610782369663695e-02,
+                        -5.1510158367999020e-03,    2.0138923007602519e-02, 2.8528309235125775e-02, -1.4693841992000536e-02,
+                        -6.1322279327949293e-02,    -2.3474729269070831e-02,    7.3402356999962420e-02, 8.4773278755553183e-02,
+                        -3.6244385557186239e-02,    -1.2745826907380517e-01,    -4.1604662978647705e-02,    1.1192581488289725e-01,
+                        1.1192581488289725e-01, -4.1604662978647705e-02,    -1.2745826907380517e-01,    -3.6244385557186239e-02,
+                        8.4773278755553183e-02, 7.3402356999962420e-02, -2.3474729269070831e-02,    -6.1322279327949293e-02,
+                        -1.4693841992000536e-02,    2.8528309235125775e-02, 2.0138923007602519e-02, -5.1510158367999020e-03,
+                        -1.0610782369663695e-02,    -2.0228406077944785e-03,    3.3525635532227322e-03, 2.3965465579347959e-03};
 
 void main(void)
 {
@@ -279,6 +324,11 @@ void main(void)
     GPIO_SetupPinMux(8, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(8, GPIO_INPUT, GPIO_PULLUP);
 
+    //JMF Setup for using GPIO52 to measure the time is takes the processor to execute the ADCB interrupt
+    GPIO_SetupPinMux(52, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(52, GPIO_OUTPUT, GPIO_PUSHPULL);
+    GpioDataRegs.GPBCLEAR.bit.GPIO160 = 1;
+
 
     // Clear all interrupts and initialize PIE vector table:
     // Disable CPU interrupts
@@ -357,7 +407,9 @@ void main(void)
     //for ex2,3
     //EPwm5Regs.TBPRD = 50000; // Set Period to 1ms sample. Input clock is 50MHz.
     //for ex4
-    EPwm5Regs.TBPRD = 12500; // Set Period to .25ms sample. Input clock is 50MHz.
+    EPwm5Regs.TBPRD = 12500; // Set Period to .25ms sample. (4000Hz) Input clock is 50MHz.
+    //JMF for last section of ex4 UNCOMMENT
+    //EPwm5Regs.TBPRD = 500; // Set Period to .1ms sample. (10000Hz) Input clock is 50MHz.   
     // Notice here that we are not setting CMPA or CMPB because we are not using the PWM signal
     EPwm5Regs.ETSEL.bit.SOCAEN = 1; //enable SOCA
     EPwm5Regs.TBCTL.bit.CTRMODE = 0; //unfreeze, and enter up count mode
@@ -676,24 +728,34 @@ __interrupt void ADCA_ISR (void) {
 //}
 
 __interrupt void ADCB_ISR (void) {
+    //JMF Set GPIO52 pin high to measure on oscilliscope:
+    GpioDataRegs.GPBSET.bit.GPIO160 = 1;
+
     yk3 = 0;
     adcb0result = AdcbResultRegs.ADCRESULT0;
     // Here covert ADCIND0, ADCIND1 to volts
     sound[0] = (3.0/4096.0)*adcb0result;
-//need to filter next
+    //JMF Runs 31 coeffiecent filtering for loop on low pass filter
+    for(int i = 0; i < SIZEOFARRAY; i++) {
+        yk3 += b[i]*sound[i];
+    }
+    //JMF Run 31 coeffiecent filetering for loop for band pass filter (1750 to 2500 Hz allowed) UNCOMMENT
 //    for(int i = 0; i < SIZEOFARRAY; i++) {
-//        yk3 += b[i]*sound[i];
+//        yk3 += bandPass[i]*sound[i];
 //    }
-//
-//    for(int i = SIZEOFARRAY - 1; i >=1; i--){
-//        sound[i] = sound[i-1];
-//    }
+    //JMF allow sound values to continue into the array for further filtering
+    for(int i = SIZEOFARRAY - 1; i >=1; i--){
+        sound[i] = sound[i-1];
+    }
 
 
 // Here write yk1 to DACA channel and yk2 to DACB channel
-    //input will be changed t yk3 once we filter signal and need to view on OScope
-    setDACA(sound[0]);
-
+    //JMF set unfiltered signal to DACA which will be read by the Oscilliscope
+    //setDACA(sound[0]);
+    
+    //JMF set 31 coeffiecent filtered low pass or band pass signal to DACA which will be read by the Oscilliscope in Ex4
+    setDACA(yk3);
+    
 // Print ADCIND0 and ADCIND1’s voltage value to TeraTerm every 100ms
     //PWM period .25ms
     ADCB1_count++;
@@ -702,6 +764,8 @@ __interrupt void ADCB_ISR (void) {
     }
     AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //clear interrupt flag
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
+    //JMF Set GPIO52 pin LOW so that time can be recorded on how long this interrupt took
+    GpioDataRegs.GPBCLEAR.bit.GPIO160 = 1;
 }
 
 // cpu_timer1_isr - CPU Timer1 ISR
