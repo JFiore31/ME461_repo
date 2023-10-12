@@ -26,7 +26,7 @@
 // The Launchpad's CPU Frequency set to 200 you should not change this value
 #define LAUNCHPAD_CPU_FREQUENCY 200
 //JMF this defined value tells us how many coefficents we will be using to filter our signal in later steps. It is 22 terms in Ex2 and 31 in Ex4
-#define SIZEOFARRAY 31
+#define SIZEOFARRAY 32
 
 // Interrupt Service Routines predefinition
 __interrupt void cpu_timer0_isr(void);
@@ -155,16 +155,9 @@ float b[32]={   -6.3046914864397922e-04,
     -2.5619416124584822e-03,
     -1.8185681242784432e-03,
     -6.3046914864397922e-04};
-//JMF lastly, this array stores the filtering coefficients for a Bandpass filter that allows frequencies between 1750 and 2250 Hz through.
-//This is because we want to locate a 2000 Hz signal. We chose a 31 coefficient filter to do this. The Matlab function was bandPass=fir1(31,[.35,.45])
-float bandPass[32]={    2.3965465579347959e-03, 3.3525635532227322e-03, -2.0228406077944785e-03,    -1.0610782369663695e-02,
-                        -5.1510158367999020e-03,    2.0138923007602519e-02, 2.8528309235125775e-02, -1.4693841992000536e-02,
-                        -6.1322279327949293e-02,    -2.3474729269070831e-02,    7.3402356999962420e-02, 8.4773278755553183e-02,
-                        -3.6244385557186239e-02,    -1.2745826907380517e-01,    -4.1604662978647705e-02,    1.1192581488289725e-01,
-                        1.1192581488289725e-01, -4.1604662978647705e-02,    -1.2745826907380517e-01,    -3.6244385557186239e-02,
-                        8.4773278755553183e-02, 7.3402356999962420e-02, -2.3474729269070831e-02,    -6.1322279327949293e-02,
-                        -1.4693841992000536e-02,    2.8528309235125775e-02, 2.0138923007602519e-02, -5.1510158367999020e-03,
-                        -1.0610782369663695e-02,    -2.0228406077944785e-03,    3.3525635532227322e-03, 2.3965465579347959e-03};
+//JMF lastly, this array stores the filtering coefficients for a Bandpass filter that allows frequencies between 1950 and 2050 Hz through.
+//This is because we want to locate a 2000 Hz signal. We chose a 31 coefficient filter to do this. The Matlab function was bandPass=fir1(100,[.39,.41])
+float bandPass[101]={   2.0089131384901197e-03, 6.4032873499578040e-04, -1.7662310132503288e-03,    -1.8966231855838251e-03,    7.9038298787438197e-04, 2.8250866960543826e-03, 9.7274726769560108e-04, -2.8535932093218977e-03,    -3.2069079180517828e-03,    1.3777460739364028e-03, 5.0108857805228734e-03, 1.7369488778204004e-03, -5.0869489066624630e-03,    -5.6717260737981379e-03,    2.4066077632725297e-03, 8.6179538038498871e-03, 2.9352017836365030e-03, -8.4357135384937401e-03,    -9.2235281203421979e-03,    3.8369713729420702e-03, 1.3470983718227284e-02, 4.4992711557421761e-03, -1.2684979985041140e-02,    -1.3611937750688167e-02,    5.5600514925787251e-03, 1.9176967391055018e-02, 6.2956283333650978e-03, -1.7455271677881148e-02,    -1.8429536833842467e-02,    7.4103785848253561e-03, 2.5171457314971404e-02, 8.1418571044648731e-03, -2.2250769713411937e-02,    -2.3165078063428872e-02,    9.1879041586407240e-03, 3.0795414085640505e-02, 9.8318928762857697e-03, -2.6528873794684965e-02,    -2.7276081156801475e-02,    1.0686709091186523e-02, 3.5390668308456406e-02, 1.1166118673320274e-02, -2.9780034614308684e-02,    -3.0269173855075916e-02,    1.1725680290077527e-02, 3.8398491060813049e-02, 1.1981403290429368e-02, -3.1604759414221834e-02,    -3.1774940699058361e-02,    1.2176082500102338e-02, 3.9444917234878515e-02, 1.2176082500102338e-02, -3.1774940699058361e-02,    -3.1604759414221834e-02,    1.1981403290429368e-02, 3.8398491060813049e-02, 1.1725680290077527e-02, -3.0269173855075916e-02,    -2.9780034614308684e-02,    1.1166118673320274e-02, 3.5390668308456406e-02, 1.0686709091186523e-02, -2.7276081156801475e-02,    -2.6528873794684965e-02,    9.8318928762857697e-03, 3.0795414085640505e-02, 9.1879041586407240e-03, -2.3165078063428872e-02,    -2.2250769713411937e-02,    8.1418571044648731e-03, 2.5171457314971404e-02, 7.4103785848253561e-03, -1.8429536833842467e-02,    -1.7455271677881148e-02,    6.2956283333650978e-03, 1.9176967391055018e-02, 5.5600514925787251e-03, -1.3611937750688167e-02,    -1.2684979985041140e-02,    4.4992711557421761e-03, 1.3470983718227284e-02, 3.8369713729420702e-03, -9.2235281203421979e-03,    -8.4357135384937401e-03,    2.9352017836365030e-03, 8.6179538038498871e-03, 2.4066077632725297e-03, -5.6717260737981379e-03,    -5.0869489066624630e-03,    1.7369488778204004e-03, 5.0108857805228734e-03, 1.3777460739364028e-03, -3.2069079180517828e-03,    -2.8535932093218977e-03,    9.7274726769560108e-04, 2.8250866960543826e-03, 7.9038298787438197e-04, -1.8966231855838251e-03,    -1.7662310132503288e-03,    6.4032873499578040e-04, 2.0089131384901197e-03};
 
 void main(void)
 {
@@ -327,7 +320,7 @@ void main(void)
     //JMF Setup for using GPIO52 to measure the time is takes the processor to execute the ADCB interrupt
     GPIO_SetupPinMux(52, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(52, GPIO_OUTPUT, GPIO_PUSHPULL);
-    GpioDataRegs.GPBCLEAR.bit.GPIO160 = 1;
+    GpioDataRegs.GPBCLEAR.bit.GPIO52 = 1;
 
 
     // Clear all interrupts and initialize PIE vector table:
@@ -408,9 +401,9 @@ void main(void)
     //for ex2,3
     //EPwm5Regs.TBPRD = 50000; // Set Period to 1ms sample. Input clock is 50MHz.
     //for ex4
-    EPwm5Regs.TBPRD = 12500; // Set Period to .25ms sample. (4000Hz) Input clock is 50MHz.
-    //JMF for last section of ex4 UNCOMMENT
-    //EPwm5Regs.TBPRD = 500; // Set Period to .1ms sample. (10000Hz) Input clock is 50MHz.   
+    //EPwm5Regs.TBPRD = 12500; // Set Period to .25ms sample. (4000Hz) Input clock is 50MHz.
+    //JMF for last section of ex4
+    EPwm5Regs.TBPRD = 5000; // Set Period to .1ms sample. (10000Hz) Input clock is 50MHz.
     // Notice here that we are not setting CMPA or CMPB because we are not using the PWM signal
     EPwm5Regs.ETSEL.bit.SOCAEN = 1; //enable SOCA
     EPwm5Regs.TBCTL.bit.CTRMODE = 0; //unfreeze, and enter up count mode
@@ -725,20 +718,20 @@ __interrupt void ADCA_ISR (void) {
 
 __interrupt void ADCB_ISR (void) {
     //JMF Set GPIO52 pin high to measure on oscilloscope:
-    GpioDataRegs.GPBSET.bit.GPIO160 = 1;
+    GpioDataRegs.GPBSET.bit.GPIO52 = 1;
 
     yk3 = 0;
     adcb0result = AdcbResultRegs.ADCRESULT0;
     // Here covert ADCIND0, ADCIND1 to volts
     sound[0] = (3.0/4096.0)*adcb0result;
     //JMF Runs 31 coefficient filtering for loop on low pass filter
-    for(int i = 0; i < SIZEOFARRAY; i++) {
-        yk3 += b[i]*sound[i];
-    }
-    //JMF Run 31 coefficient filtering for loop for band pass filter (1750 to 2500 Hz allowed) UNCOMMENT
 //    for(int i = 0; i < SIZEOFARRAY; i++) {
-//        yk3 += bandPass[i]*sound[i];
+//        yk3 += b[i]*sound[i];
 //    }
+    //JMF Run 31 coefficient filtering for loop for band pass filter (1750 to 2500 Hz allowed)
+    for(int i = 0; i < SIZEOFARRAY; i++) {
+        yk3 += bandPass[i]*sound[i];
+    }
     //JMF allow sound values to continue into the array for further filtering
     for(int i = SIZEOFARRAY - 1; i >=1; i--){
         sound[i] = sound[i-1];
@@ -750,7 +743,7 @@ __interrupt void ADCB_ISR (void) {
     //setDACA(sound[0]);
     
     //JMF set 31 coefficient filtered low pass or band pass signal to DACA which will be read by the Oscilloscope in Ex4
-    setDACA(yk3);
+    setDACA(yk3+1.5);
     
 // Print ADCIND0 and ADCIND1’s voltage value to TeraTerm every 100ms
     //PWM period .25ms
@@ -761,7 +754,7 @@ __interrupt void ADCB_ISR (void) {
     AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //clear interrupt flag
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
     //JMF Set GPIO52 pin LOW so that time can be recorded on how long this interrupt took
-    GpioDataRegs.GPBCLEAR.bit.GPIO160 = 1;
+    GpioDataRegs.GPBCLEAR.bit.GPIO52 = 1;
 }
 
 // cpu_timer1_isr - CPU Timer1 ISR
