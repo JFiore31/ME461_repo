@@ -33,17 +33,19 @@ __interrupt void cpu_timer0_isr(void);
 __interrupt void cpu_timer1_isr(void);
 __interrupt void cpu_timer2_isr(void);
 __interrupt void SWI_isr(void);
+
 //JMF here we are predefining the interrupts that will trigger when the ADC finishes converting a value for us from analog to discrete
 __interrupt void ADCD_ISR (void);
 __interrupt void ADCA_ISR (void);
 __interrupt void ADCB_ISR (void);
+
 // Count variables
 uint32_t numTimer0calls = 0;
 uint32_t numSWIcalls = 0;
 extern uint32_t numRXA;
 uint16_t UARTPrint = 0;
 uint16_t LEDdisplaynum = 0;
-//Ex1.4e
+//ex1.4e
 //JMF these variables are used to hold the discrete value that adcd's soc 0 and 1 converts. We need to pull these values from their bit fields because we need to map them to volts
 int16_t adcd0result = 0;
 int16_t adcd1result = 0;
@@ -53,9 +55,8 @@ int16_t adcd1result = 0;
 int16_t adca0result = 0;
 int16_t adca1result = 0;
 
-// ex4
-//JMF these variables are used to hold the discrete value that adcb's soc 0 converts. We need to pull this value from its bit field because we need to map them to volts
-int16_t adcb0result = 0;
+//ex4
+int16_t adcb0result = 0; //JMF these variables are used to hold the discrete value that adcb's soc 0 converts. We need to pull this value from its bit field because we need to map them to volts
 
 //JMF used to print ADCIND1 to tera term. Mapped variable from the bit held in the results bit field
 float ADCIND1Volts = 0.0;
@@ -67,25 +68,24 @@ int32_t ADCD1_count = 0;
 int32_t ADCA1_count = 0;
 int32_t ADCB1_count = 0;
 
-//Ex 2 predefinition of variables for print
-//JMF yk is the filtered value of our signal using a simple average filter
-float yk = 0;
+//ex2 predefinition of variables for print
+float yk = 0;//JMF yk is the filtered value of our signal using a simple average filter
 
-//ex 3
+//ex3
 //JMF yk1 and yk2 are the mapped and filtered voltage values of the x and y directions given by the joystick
 float yk1 = 0.0;
 float yk2 = 0.0;
 //ex4
-//JMF yk3 is the filtered output of the voice signal given to the microphone
-float yk3 = 0.0;
+float yk3 = 0.0; //JMF yk3 is the filtered output of the voice signal given to the microphone
 
 //JMF initial array used for 5 term filtering. all set to .2 since this gives us the average of the signal
 //float b[SIZEOFARRAY] = {0.2,0.2,0.2,0.2,0.2}; // 0.2 is 1/5th therefore a 5 point average
-//JMF initial array used for 5 term filtering. We used MATLAB to get coeffiecents that give us a cut off frequency of 50Hz. MATLAB code: b = fir1(5,.1) arraytoCformat(b)
+
+//JMF initial array used for 5 term filtering. We used MATLAB to get coefficients that give us a cut off frequency of 50Hz. MATLAB code: b = fir1(5,.1) arraytoCformat(b)
 //in fir1 function, .1 refers to 10% of the Nyquist frequency which is 500 since the sample rate is 1000 Hz
 //float b[SIZEOFARRAY]={    3.3833240118424500e-02, 2.4012702387971543e-01, 4.5207947200372001e-01, 2.4012702387971543e-01, 3.3833240118424500e-02};
 
-//JMF new MATLAB code given to give filtering coeffiecents for 21 term filter. This is a better low pass filter than 5 terms and used in EX2 and EX3
+//JMF new MATLAB code given to give filtering coefficients for 21 term filter. This is a better low pass filter than 5 terms and used in EX2 and EX3
 //b = fir1(21,75/500) arraytoCformat(b) is the code for how we get the output b array
 //float b[22]={   -2.3890045153263611e-03,
 //    -3.3150057635348224e-03,
@@ -110,19 +110,19 @@ float yk3 = 0.0;
 //    -3.3150057635348224e-03,
 //    -2.3890045153263611e-03};
 //JMF for 21st order. This array will store the last 21 scaled to volt values from the ADC that will be filtered by their respective weights given in b[].
-//Note that setting the first 5 values to 0 is usually requred, but since the first value moves along the array, putting just the 0th value as 0 will eventually fill the entire array, but usally
+//Note that setting the first 5 values to 0 is usually required, but since the first value moves along the array, putting just the 0th value as 0 will eventually fill the entire array, but usually
 //we would have to set them all to 0 after declaring the array
 float xk_n[SIZEOFARRAY] = {0,0,0,0,0};
 
-//ex 3
-//JMF scaled volt value array for storing the values of how mucht he joystick is in the X direction and Y direction
+//ex3
+//JMF scaled volt value array for storing the values of how much he joy-stick is in the X direction and Y direction
 float dim1[SIZEOFARRAY] = {0,0,0,0,0};
 float dim2[SIZEOFARRAY] = {0,0,0,0,0};
 
 //ex4
-//JMF scaled volt value array that hold the values of the sound waves passed to the ADCB by the micrphone
+//JMF scaled volt value array that hold the values of the sound waves passed to the ADCB by the microphone
 float sound[SIZEOFARRAY] = {0};
-//JMF This array stores the filtering coeffiecents for a 31st order low pass filter with a cutoff frequency of 500Hz. The MATLAB function used was b=fir1(31,.25)
+//JMF This array stores the filtering coefficients for a 31st order low pass filter with a cutoff frequency of 500Hz. The MATLAB function used was b=fir1(31,.25)
 float b[32]={   -6.3046914864397922e-04,
     -1.8185681242784432e-03,
     -2.5619416124584822e-03,
@@ -155,8 +155,8 @@ float b[32]={   -6.3046914864397922e-04,
     -2.5619416124584822e-03,
     -1.8185681242784432e-03,
     -6.3046914864397922e-04};
-//JMF lastly, this array stores the filtering coeffiecents for a Bandpass filter that allows frequencies between 1750 and 2250 Hz through.
-//This is because we want to locate a 2000 Hz signal. We chose a 31 coeffiecent filter to do this. The Matlab function was bandPass=fir1(31,[.35,.45])
+//JMF lastly, this array stores the filtering coefficients for a Bandpass filter that allows frequencies between 1750 and 2250 Hz through.
+//This is because we want to locate a 2000 Hz signal. We chose a 31 coefficient filter to do this. The Matlab function was bandPass=fir1(31,[.35,.45])
 float bandPass[32]={    2.3965465579347959e-03, 3.3525635532227322e-03, -2.0228406077944785e-03,    -1.0610782369663695e-02,
                         -5.1510158367999020e-03,    2.0138923007602519e-02, 2.8528309235125775e-02, -1.4693841992000536e-02,
                         -6.1322279327949293e-02,    -2.3474729269070831e-02,    7.3402356999962420e-02, 8.4773278755553183e-02,
@@ -366,9 +366,10 @@ void main(void)
     PieVectTable.SCIB_TX_INT = &TXBINT_data_sent;
     PieVectTable.SCIC_TX_INT = &TXCINT_data_sent;
     PieVectTable.SCID_TX_INT = &TXDINT_data_sent;
+
     //JMF these next 3 lines tell the code to add the interrupts for ADCD, ADCA, and ADCB to the PIE table. This basically gives them the ability to have priority that they can execute their work on the processor.
-//    PieVectTable.ADCD1_INT =&ADCD_ISR;
-   // PieVectTable.ADCA1_INT = &ADCA_ISR;
+    // PieVectTable.ADCD1_INT =&ADCD_ISR;
+    // PieVectTable.ADCA1_INT = &ADCA_ISR;
     PieVectTable.ADCB1_INT = &ADCB_ISR;
 
     PieVectTable.EMIF_ERROR_INT = &SWI_isr;
@@ -392,7 +393,7 @@ void main(void)
 
 	init_serialSCIA(&SerialA,115200);
 
-    // Ex1.1
+    // ex1.1
 	//JMF instead of using the cpu timers to determine the period of how often the ADC will do its job, we want to use a PWM pin to do this. Here we are setting up EPWM 5 with a period value
 	//that we determine is fitting for our ADCs to sample at. the input clock is set at 50 MHz, so we use the TBPRD counting bit field to determine the time span between samples
     EALLOW;
@@ -520,8 +521,8 @@ void main(void)
     //1.4d, ADCD
 //    PieCtrlRegs.PIEIER1.bit.INTx6 = 1;
     //EX3 ADCA
-    //PieCtrlRegs.PIEIER1.bit.INTx1 = 1;
-    //ex4 ABCB
+    //
+    //EX4 ABCB
     PieCtrlRegs.PIEIER1.bit.INTx2 = 1;
 
 
@@ -530,14 +531,14 @@ void main(void)
 	init_serialSCID(&SerialD,115200);
     // Enable global Interrupts and higher priority real-time debug events
     EINT;  // Enable Global interrupt INTM
-    ERTM;  // Enable Global realtime interrupt DBGM
+    ERTM;  // Enable Global real-time interrupt DBGM
 
     
     // IDLE loop. Just sit and loop forever (optional):
     while(1)
     {
         if (UARTPrint == 1 ) {
-            //prints the useful information from our filter that is then also shown on the oscilliscope as a reconstructed waveform after using setDAC()
+            //prints the useful information from our filter that is then also shown on the oscilloscope as a reconstructed waveform after using setDAC()
 			//serial_printf(&SerialA,"Num Timer2:%ld Num SerialRX: %ld\r\n",CpuTimer2.InterruptCount,numRXA);
             //serial_printf(&SerialA,"Channel 1: %.3f, Channel 0: %.3f\r\n",ADCIND1Volts,yk);
             //yk2 is Y direction, yk1 is X direction
@@ -558,19 +559,14 @@ __interrupt void SWI_isr(void) {
 	PieCtrlRegs.PIEACK.all = PIEACK_GROUP12;
     asm("       NOP");                    // Wait one cycle
     EINT;                                 // Clear INTM to enable interrupts
-	
-	
-	
-    // Insert SWI ISR Code here.......
-	
-	
+
     numSWIcalls++;
     
     DINT;
 
 }
 
-// cpu_timer0_isr - CPU Timer0 ISR
+// cpu_timer0 ISR - CPU Timer0 ISR
 __interrupt void cpu_timer0_isr(void)
 {
     CpuTimer0.InterruptCount++;
@@ -604,7 +600,7 @@ __interrupt void cpu_timer0_isr(void)
 //Example code
 //float myu = 2.25;
 //setDACA(myu); // DACA will now output 2.25 Volts
-//they are used to turn the digital signal we have recieved and filtered back into a analog one so that we can show the signal on the oscilliscope
+//they are used to turn the digital signal we have recieved and filtered back into a analog one so that we can show the signal on the oscilloscope
 void setDACA(float dacouta0) {
     int16_t DACOutInt = 0;
     DACOutInt = (4096.0/3.0)*dacouta0; // perform scaling of 0 – almost 3V to 0 - 4095
@@ -645,7 +641,7 @@ void setDACB(float dacoutb0) {
 //    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
 //}
 //Ex2
-//acdc1 pie interrupt with simple average filering
+//acdc1 pie interrupt with simple average filtering
 //xk is the current ADC reading, xk_1 is the ADC reading one millisecond ago, xk_2 two milliseconds ago, etc
 float xk = 0;
 float xk_1 = 0;
@@ -653,7 +649,7 @@ float xk_2 = 0;
 float xk_3 = 0;
 float xk_4 = 0;
 //b is the filter coefficients
-//first array is the average filter coeffiecents
+//first array is the average filter coefficients
 
 // Exercise 3
 __interrupt void ADCA_ISR (void) {
@@ -728,18 +724,18 @@ __interrupt void ADCA_ISR (void) {
 //}
 
 __interrupt void ADCB_ISR (void) {
-    //JMF Set GPIO52 pin high to measure on oscilliscope:
+    //JMF Set GPIO52 pin high to measure on oscilloscope:
     GpioDataRegs.GPBSET.bit.GPIO160 = 1;
 
     yk3 = 0;
     adcb0result = AdcbResultRegs.ADCRESULT0;
     // Here covert ADCIND0, ADCIND1 to volts
     sound[0] = (3.0/4096.0)*adcb0result;
-    //JMF Runs 31 coeffiecent filtering for loop on low pass filter
+    //JMF Runs 31 coefficient filtering for loop on low pass filter
     for(int i = 0; i < SIZEOFARRAY; i++) {
         yk3 += b[i]*sound[i];
     }
-    //JMF Run 31 coeffiecent filetering for loop for band pass filter (1750 to 2500 Hz allowed) UNCOMMENT
+    //JMF Run 31 coefficient filtering for loop for band pass filter (1750 to 2500 Hz allowed) UNCOMMENT
 //    for(int i = 0; i < SIZEOFARRAY; i++) {
 //        yk3 += bandPass[i]*sound[i];
 //    }
@@ -750,10 +746,10 @@ __interrupt void ADCB_ISR (void) {
 
 
 // Here write yk1 to DACA channel and yk2 to DACB channel
-    //JMF set unfiltered signal to DACA which will be read by the Oscilliscope
+    //JMF set un-filtered signal to DACA which will be read by the oscilloscope
     //setDACA(sound[0]);
     
-    //JMF set 31 coeffiecent filtered low pass or band pass signal to DACA which will be read by the Oscilliscope in Ex4
+    //JMF set 31 coefficient filtered low pass or band pass signal to DACA which will be read by the Oscilloscope in Ex4
     setDACA(yk3);
     
 // Print ADCIND0 and ADCIND1’s voltage value to TeraTerm every 100ms
