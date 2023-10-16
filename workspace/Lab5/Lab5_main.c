@@ -40,8 +40,10 @@ uint32_t numSWIcalls = 0;
 extern uint32_t numRXA;
 uint16_t UARTPrint = 0;
 uint16_t LEDdisplaynum = 0;
+//JMF
 int16_t spivalue1 = 0;
 int16_t spivalue2 = 0;
+int16_t upDown = 1;
 
 void main(void)
 {
@@ -250,7 +252,9 @@ void main(void)
 
     // Configure CPU-Timer 0, 1, and 2 to interrupt every given period:
     // 200MHz CPU Freq,                       Period (in uSeconds)
+    //JMF cputimer0 used for EX1
     ConfigCpuTimer(&CpuTimer0, LAUNCHPAD_CPU_FREQUENCY, 10000);
+    //JMF cputimer1 used for EX2
     ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 20000);
     ConfigCpuTimer(&CpuTimer2, LAUNCHPAD_CPU_FREQUENCY, 40000);
 
@@ -405,8 +409,30 @@ __interrupt void cpu_timer0_isr(void)
 }
 
 // cpu_timer1_isr - CPU Timer1 ISR
+//JMF Used for EX2
 __interrupt void cpu_timer1_isr(void)
 {
+    //Clear GPIO9 Low to act as a Slave Select. Right now, just to scope. Later to select DAN28027 chip
+        //JMF Clear to SS
+        GpioDataRegs.GPACLEAR.bit.GPIO9 = 1;
+        SpibRegs.SPIFFRX.bit.RXFFIL = 2; // Issue the SPIB_RX_INT when two values are in the RX FIFO
+        //JMF do not read the register instead just increment a variable and pass it to the send at the end of the if statement TODO!!!!!!!!!!!!!!!!!!!
+          if (upDown == 1){
+              value = SpibRegs.SPIRXBUF;
+              SpibRegs.SPITXBUF = value + 0x10; //JMF check the hex values that this works TODO!!!!
+              if (SpibRegs.SPITXBUF == 0xBB8) {//JMF3000 in hex
+                  upDown = 0;
+              }
+          } else {
+              SpibRegs.SPITXBUF = SpibRegs.SPITXBUF - 10;
+                if (SpibRegs.SPITXBUF == 0x0) {
+                    upDown = 1;
+                }
+          }
+          //JMF need to send DA and then our incremented value TODO!!!!!!!!!!!!!!!!!!!
+        SpibRegs.SPITXBUF = 0x4A3B; // 0x4A3B and 0xB517 have no special meaning. Wanted to send
+        SpibRegs.SPITXBUF = 0xB517; // something so you can see the pattern on the Oscilloscope
+        SpibRegs.SPITXBUF = 0x46A7; //JMF here we are writing to the Dan chip 3 random values
 
     CpuTimer1.InterruptCount++;
 }
@@ -424,14 +450,29 @@ __interrupt void cpu_timer2_isr(void)
     }
 }
 
+//JMF EX1 SPIB_isr interrupt
+//__interrupt void SPIB_isr(void)
+//{
+//    spivalue1 = SpibRegs.SPIRXBUF; // Read first 16-bit value off RX FIFO. Probably is zero since no chip
+//    spivalue2 = SpibRegs.SPIRXBUF; // Read second 16-bit value off RX FIFO. Again probably zero
+//    GpioDataRegs.GPASET.bit.GPIO9 = 1; // Set GPIO9 high to end Slave Select. Now Scope. Later to de-select DAN28027
+//    // Later when actually communicating with the DAN28027 do something with the data. Now do nothing.
+//    SpibRegs.SPIFFRX.bit.RXFFOVFCLR = 1; // Clear Overflow flag just in case of an overflow
+//    SpibRegs.SPIFFRX.bit.RXFFINTCLR = 1; // Clear RX FIFO Interrupt flag so next interrupt will happen
+//    PieCtrlRegs.PIEACK.all = PIEACK_GROUP6; // Acknowledge INT6 PIE interrupt
+//}
+
+//JMF EX2 SPIB_isr interrupt
 __interrupt void SPIB_isr(void)
 {
     spivalue1 = SpibRegs.SPIRXBUF; // Read first 16-bit value off RX FIFO. Probably is zero since no chip
     spivalue2 = SpibRegs.SPIRXBUF; // Read second 16-bit value off RX FIFO. Again probably zero
+    readvalue = SpibRegs.SPIRXBUF;
+
     GpioDataRegs.GPASET.bit.GPIO9 = 1; // Set GPIO9 high to end Slave Select. Now Scope. Later to de-select DAN28027
     // Later when actually communicating with the DAN28027 do something with the data. Now do nothing.
     SpibRegs.SPIFFRX.bit.RXFFOVFCLR = 1; // Clear Overflow flag just in case of an overflow
     SpibRegs.SPIFFRX.bit.RXFFINTCLR = 1; // Clear RX FIFO Interrupt flag so next interrupt will happen
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP6; // Acknowledge INT6 PIE interrupt
 }
-
+readvalue = SpibRegs.SPIRXBUF;
