@@ -34,8 +34,11 @@ __interrupt void cpu_timer2_isr(void);
 __interrupt void SWI_isr(void);
 __interrupt void SPIB_isr(void);
 
-// Count variables
-uint32_t numTimer0calls = 0;
+//JMF predefinition for EX3 Function
+void setupSpib(void);
+
+                // Count variables
+                uint32_t numTimer0calls = 0;
 uint32_t numSWIcalls = 0;
 extern uint32_t numRXA;
 uint16_t UARTPrint = 0;
@@ -43,7 +46,27 @@ uint16_t LEDdisplaynum = 0;
 //JMF
 int16_t spivalue1 = 0;
 int16_t spivalue2 = 0;
+int16_t spivalue3 = 0;
 int16_t upDown = 1;
+int16_t pwmvalue2 = 0;
+int16_t pwmvalue3 = 0;
+float scaledADC1 = 0.0;
+float scaledADC2 = 0.0;
+//JMF for EX3
+int16_t address = 0;
+int16_t X_ACCEL = 0;
+int16_t Y_ACCEL = 0;
+int16_t Z_ACCEL = 0;
+int16_t temperature = 0;
+int16_t X_GYRO = 0;
+int16_t Y_GYRO = 0;
+int16_t Z_GYRO = 0;
+float scldXAccel = 0.0;
+float scldYAccel = 0.0;
+float scldZAccel = 0.0;
+float scldXGyro = 0.0;
+float scldYGyro = 0.0;
+float scldZGyro = 0.0;
 
 void main(void)
 {
@@ -253,7 +276,7 @@ void main(void)
     // Configure CPU-Timer 0, 1, and 2 to interrupt every given period:
     // 200MHz CPU Freq,                       Period (in uSeconds)
     //JMF cputimer0 used for EX1
-    ConfigCpuTimer(&CpuTimer0, LAUNCHPAD_CPU_FREQUENCY, 10000);
+    ConfigCpuTimer(&CpuTimer0, LAUNCHPAD_CPU_FREQUENCY, 1000);
     //JMF cputimer1 used for EX2
     ConfigCpuTimer(&CpuTimer1, LAUNCHPAD_CPU_FREQUENCY, 20000);
     ConfigCpuTimer(&CpuTimer2, LAUNCHPAD_CPU_FREQUENCY, 40000);
@@ -264,7 +287,235 @@ void main(void)
     CpuTimer2Regs.TCR.all = 0x4000;
 
     init_serialSCIA(&SerialA,115200);
+    setupSpib();
 
+    // Enable CPU int1 which is connected to CPU-Timer 0, CPU int13
+    // which is connected to CPU-Timer 1, and CPU int 14, which is connected
+    // to CPU-Timer 2:  int 12 is for the SWI.  
+    IER |= M_INT1;
+    IER |= M_INT8;  // SCIC SCID
+    IER |= M_INT9;  // SCIA
+    IER |= M_INT12;
+    IER |= M_INT13;
+    IER |= M_INT14;
+    IER |= M_INT6; //SPIB
+
+    // Enable TINT0 in the PIE: Group 1 interrupt 7
+    PieCtrlRegs.PIEIER1.bit.INTx7 = 1;
+    // Enable SWI in the PIE: Group 12 interrupt 9
+    PieCtrlRegs.PIEIER12.bit.INTx9 = 1;
+    //JMF Enable SPIB in the PIE: Group 6 interrupt 3
+    PieCtrlRegs.PIEIER6.bit.INTx3 = 1;
+
+    //init_serialSCIB(&SerialB,115200);
+    init_serialSCIC(&SerialC,115200);
+    init_serialSCID(&SerialD,115200);
+    // Enable global Interrupts and higher priority real-time debug events
+    EINT;  // Enable Global interrupt INTM
+    ERTM;  // Enable Global realtime interrupt DBGM
+
+
+    // IDLE loop. Just sit and loop forever (optional):
+    while(1)
+    {
+        if (UARTPrint == 1 ) {
+            //serial_printf(&SerialA,"Num Timer2:%ld Num SerialRX: %ld\r\n",CpuTimer2.InterruptCount,numRXA);
+            //JMF to print ADC values to tera term that were received from the dan chip in EX2
+            //serial_printf(&SerialA, "ADC1 Value:%.3f ADC2 Value:%.3f\r\n",scaledADC1,scaledADC2);
+            //JMF to print X,Y,Z Acceleration and Gyro values received from MPU
+            serial_printf(&SerialA, "X_ACCEL:%.3f(g) Y_ACCEL:%.3f(g) Z_ACCEL:%.3f(g) \r\nX_GYRO:%.3f(deg per sec) Y_GYRO:%.3f(deg per sec) Z_GYRO %.3fdeg per sec(deg per sec)\r\n\n",scldXAccel, scldYAccel, scldZAccel, scldXGyro, scldYGyro, scldZGyro);
+            UARTPrint = 0;
+        }
+    }
+}
+
+
+// SWI_isr,  Using this interrupt as a Software started interrupt
+__interrupt void SWI_isr(void) {
+
+    // These three lines of code allow SWI_isr, to be interrupted by other interrupt functions
+    // making it lower priority than all other Hardware interrupts.
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP12;
+    asm("       NOP");                    // Wait one cycle
+    EINT;                                 // Clear INTM to enable interrupts
+
+
+
+    // Insert SWI ISR Code here.......
+
+
+    numSWIcalls++;
+
+    DINT;
+
+}
+
+// cpu_timer0_isr - CPU Timer0 ISR
+__interrupt void cpu_timer0_isr(void)
+{
+    //JMF Exercise 3
+    // call every 1ms
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPIFFRX.bit.RXFFIL = 8;
+
+    SpibRegs.SPITXBUF = 0xBA00;
+    SpibRegs.SPITXBUF = 0x0000;
+    SpibRegs.SPITXBUF = 0x0000;
+    SpibRegs.SPITXBUF = 0x0000;
+    SpibRegs.SPITXBUF = 0x0000;
+    SpibRegs.SPITXBUF = 0x0000;
+    SpibRegs.SPITXBUF = 0x0000;
+    SpibRegs.SPITXBUF = 0x0000;
+
+
+    //Clear GPIO9 Low to act as a Slave Select. Right now, just to scope. Later to select DAN28027 chip
+    //JMF Clear to SS
+    //    GpioDataRegs.GPACLEAR.bit.GPIO9 = 1;
+    //    SpibRegs.SPIFFRX.bit.RXFFIL = 2; // Issue the SPIB_RX_INT when two values are in the RX FIFO
+    //    SpibRegs.SPITXBUF = 0x4A3B; // 0x4A3B and 0xB517 have no special meaning. Wanted to send
+    //    SpibRegs.SPITXBUF = 0xB517; // something so you can see the pattern on the Oscilloscope
+
+
+    CpuTimer0.InterruptCount++;
+
+    numTimer0calls++;
+
+    //    if ((numTimer0calls%50) == 0) {
+    //        PieCtrlRegs.PIEIFR12.bit.INTx9 = 1;  // Manually cause the interrupt for the SWI
+    //    }
+
+    if ((numTimer0calls%25) == 0) {
+        displayLEDletter(LEDdisplaynum);
+        LEDdisplaynum++;
+        if (LEDdisplaynum == 0xFFFF) {  // prevent roll over exception
+            LEDdisplaynum = 0;
+        }
+    }
+
+    if ((numTimer0calls%50) == 0) {
+        // Blink LaunchPad Red LED
+        GpioDataRegs.GPBTOGGLE.bit.GPIO34 = 1;
+    }
+
+
+    // Acknowledge this interrupt to receive more interrupts from group 1
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
+
+    if ((CpuTimer0.InterruptCount % 200) == 0) {
+        UARTPrint = 1;
+    }
+}
+
+// cpu_timer1_isr - CPU Timer1 ISR
+//JMF Used for EX2
+__interrupt void cpu_timer1_isr(void)
+{
+    //Clear GPIO9 Low to act as a Slave Select. Right now, just to scope. Later to select DAN28027 chip
+    //JMF Clear to SS
+    //GpioDataRegs.GPACLEAR.bit.GPIO9 = 1;
+    //JMF send DA to set up SPI transmission as datasheet calls for
+    //JMF writing to the FIFO happens in ~50 nano second but sending the data over takes something like 48 micro seconds.
+    //SpibRegs.SPIFFRX.bit.RXFFIL = 3; //JMF Issue the SPIB_RX_INT when three values are in the RX FIFO. This is the command that sends the data out of the FIFO to the chip
+    // JMF this being set to 3 means that the interrupt to recieve data back form the chip will also be called when 3 16 bit numbers are sent.
+
+    //JMF first send the start command, then send our two values of PWM signal we want the DAN chip t use
+//    SpibRegs.SPITXBUF = 0x00DA;
+//    SpibRegs.SPITXBUF = pwmvalue2;
+//    SpibRegs.SPITXBUF = pwmvalue3;
+    //JMF do not read the register instead just increment a variable and pass it to the send at the end of the if statement
+    //JMF this is like setting a duty cycle
+    if (upDown == 1){
+        pwmvalue2 = pwmvalue2 + 10;
+        pwmvalue3 = pwmvalue3 + 10;
+        if (pwmvalue2 == 3000 || pwmvalue3 == 3000) {//JMF3000 to prevent overflow
+            upDown = 0;
+        }
+    } else {
+        pwmvalue2 = pwmvalue2 - 10;
+        pwmvalue3 = pwmvalue3 - 10;
+        if (pwmvalue2 == 0 || pwmvalue3 == 0) {
+            upDown = 1;
+        }
+    }
+    CpuTimer1.InterruptCount++;
+    //JMF this is scaling to convert the ADC values we recieve from the DAN chip to float to be displayed as a voltage
+    scaledADC1 = (3.3/4095)*spivalue2;
+    scaledADC2 = (3.3/4095)*spivalue3;
+    //JMF print statement set to print every 100 ms
+//    if ((CpuTimer1.InterruptCount % 5) == 0) {
+//        UARTPrint = 1;
+//    }
+}
+
+// cpu_timer2_isr CPU Timer2 ISR
+__interrupt void cpu_timer2_isr(void)
+{
+    // Blink LaunchPad Blue LED
+    GpioDataRegs.GPATOGGLE.bit.GPIO31 = 1;
+
+    CpuTimer2.InterruptCount++;
+
+//    if ((CpuTimer2.InterruptCount % 10) == 0) {
+//        UARTPrint = 1;
+//    }
+}
+
+//JMF EX1 SPIB_isr interrupt
+//__interrupt void SPIB_isr(void)
+//{
+//    spivalue1 = SpibRegs.SPIRXBUF; // Read first 16-bit value off RX FIFO. Probably is zero since no chip
+//    spivalue2 = SpibRegs.SPIRXBUF; // Read second 16-bit value off RX FIFO. Again probably zero
+//    GpioDataRegs.GPASET.bit.GPIO9 = 1; // Set GPIO9 high to end Slave Select. Now Scope. Later to de-select DAN28027
+//    // Later when actually communicating with the DAN28027 do something with the data. Now do nothing.
+//    SpibRegs.SPIFFRX.bit.RXFFOVFCLR = 1; // Clear Overflow flag just in case of an overflow
+//    SpibRegs.SPIFFRX.bit.RXFFINTCLR = 1; // Clear RX FIFO Interrupt flag so next interrupt will happen
+//    PieCtrlRegs.PIEACK.all = PIEACK_GROUP6; // Acknowledge INT6 PIE interrupt
+//}
+
+//JMF EX2 SPIB_isr interrupt
+__interrupt void SPIB_isr(void)
+{
+    //EX3
+    address = SpibRegs.SPIRXBUF; // JMF Discard this value, it is nothing from address write byte and the INT_STATUS which we don't care about
+    X_ACCEL = SpibRegs.SPIRXBUF; // JMF X_ACCEL
+    Y_ACCEL = SpibRegs.SPIRXBUF; // JMF Y_ACCEL
+    Z_ACCEL = SpibRegs.SPIRXBUF; // JMF Z_ACCEL
+    temperature = SpibRegs.SPIRXBUF; // JMF Discard this value, it is the temperature reading that we do not care about here. Just nice to take so we don't have to SS again.
+    X_GYRO = SpibRegs.SPIRXBUF; // JMF X_GYRO
+    Y_GYRO = SpibRegs.SPIRXBUF; // JMF Y_GYRO
+    Z_GYRO = SpibRegs.SPIRXBUF; // JMF Z_GYRO
+    //JMF X AND Y ACCEL SATURATED. GYRO SEEMS A LITLE OFF
+
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1; // Set GPI66 high to end Slave Select.
+
+
+
+    scldXAccel = X_ACCEL*(4.0/32768.); //JMF X_ACCEL is 16 bit signed int. We want to map this range of +-32768 to the range of +-4
+    scldYAccel = Y_ACCEL*(4.0/32768.);
+    scldZAccel = Z_ACCEL*(4.0/32768.);
+    scldXGyro = X_GYRO*(250.0/32768.); //JMF X_Gyro is 16 bit signed int. We want to map this range of +-32768 to the range of +-250
+    scldYGyro = Y_GYRO*(250.0/32768.);
+    scldZGyro = Z_GYRO*(250.0/32768.);
+
+    //EX2
+//    //JMF this interrupt is entered when we have sent over the amount of data values (in this case 3) to surpass the threshold to send to the DAN chip
+//    //JMF these are the values we read back from the Dan chip
+//    spivalue1 = SpibRegs.SPIRXBUF; // JMF Nothing signal from sending 0x00DA. Discard
+//    spivalue2 = SpibRegs.SPIRXBUF; // JMF ADC1 value from Dan Datasheet.
+//    spivalue3 = SpibRegs.SPIRXBUF; // JMF ADC2 value from Dan Datasheet.
+//
+//    GpioDataRegs.GPASET.bit.GPIO9 = 1; // Set GPIO9 high to end Slave Select.
+//
+    SpibRegs.SPIFFRX.bit.RXFFOVFCLR = 1; // Clear Overflow flag just in case of an overflow
+    SpibRegs.SPIFFRX.bit.RXFFINTCLR = 1; // Clear RX FIFO Interrupt flag so next interrupt will happen
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP6; // Acknowledge INT6 PIE interrupt
+}
+
+void setupSpib(void) //Call this function in main() somewhere after the DINT; line of code.
+{
+    int16_t temp = 0;
+    //Step 1.
+    // cut and paste here all the SpibRegs initializations you found for part 3. Make sure the TXdelay in between each transfer to 0. Also don’t forget to cut and paste the GPIO settings for GPIO9, 63, 64, 65, 66 which are also a part of the SPIB setup.
     GPIO_SetupPinMux(9, GPIO_MUX_CPU1, 0); // Set as GPIO9 and used as DAN28027 SS
     GPIO_SetupPinOptions(9, GPIO_OUTPUT, GPIO_PUSHPULL); // Make GPIO9 an Output Pin
     GpioDataRegs.GPASET.bit.GPIO9 = 1; //Initially Set GPIO9/SS High so DAN28027 is not selected
@@ -313,166 +564,174 @@ void main(void)
     SpibRegs.SPICTL.bit.SPIINTENA = 1; // Enables SPI interrupt. !! I don’t think this is needed. Need to Test
     SpibRegs.SPIFFRX.bit.RXFFIL = 0x10; //Interrupt Level to 16 words or more received into FIFO causes
     //interrupt. This is just the initial setting for the register. Will be changed below
+    SpibRegs.SPICCR.bit.SPICHAR = 0xF; //JMF Same as above. This is setting to transmit and receive 16 bits each write to SPITXBUF
+    SpibRegs.SPIFFCT.bit.TXDLY = 0x00;
+    //-----------------------------------------------------------------------------------------------------------------
 
-    // Enable CPU int1 which is connected to CPU-Timer 0, CPU int13
-    // which is connected to CPU-Timer 1, and CPU int 14, which is connected
-    // to CPU-Timer 2:  int 12 is for the SWI.  
-    IER |= M_INT1;
-    IER |= M_INT8;  // SCIC SCID
-    IER |= M_INT9;  // SCIA
-    IER |= M_INT12;
-    IER |= M_INT13;
-    IER |= M_INT14;
-    IER |= M_INT6; //SPIB
+    //Step 2.
+    // perform a multiple 16-bit transfer to initialize MPU-9250 registers 0x13,0x14,0x15,0x16
+    // 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C 0x1D, 0x1E, 0x1F. Use only one SS low to high for all these writes
+    // some code is given, most you have to fill you yourself.
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1; // Slave Select Low
 
-    // Enable TINT0 in the PIE: Group 1 interrupt 7
-    PieCtrlRegs.PIEIER1.bit.INTx7 = 1;
-    // Enable SWI in the PIE: Group 12 interrupt 9
-    PieCtrlRegs.PIEIER12.bit.INTx9 = 1;
-    //JMF Enable SPIB in the PIE: Group 6 interrupt 3
-    PieCtrlRegs.PIEIER6.bit.INTx3 = 1;
+    // Perform the number of needed writes to SPITXBUF to write to all 13 registers. Remember we are sending 16-bit transfers, so two registers at a time after the first 16-bit transfer.
+    // To address 00x13 write 0x00
+    SpibRegs.SPITXBUF = 0x1300;
+    // To address 00x14 write 0x00
+    // To address 00x15 write 0x00
+    SpibRegs.SPITXBUF = 0x0000;
+    // To address 00x16 write 0x00
+    // To address 00x17 write 0x00
+    SpibRegs.SPITXBUF = 0x0000;
+    // To address 00x18 write 0x00
+    // To address 00x19 write 0x13
+    SpibRegs.SPITXBUF = 0x0013;
+    // To address 00x1A write 0x02
+    // To address 00x1B write 0x00
+    SpibRegs.SPITXBUF = 0x0200;
+    // To address 00x1C write 0x08
+    // To address 00x1D write 0x06
+    SpibRegs.SPITXBUF = 0x0806;
+    // To address 00x1E write 0x00
+    // To address 00x1F write 0x00
+    SpibRegs.SPITXBUF = 0x0000;
 
-    //init_serialSCIB(&SerialB,115200);
-    init_serialSCIC(&SerialC,115200);
-    init_serialSCID(&SerialD,115200);
-    // Enable global Interrupts and higher priority real-time debug events
-    EINT;  // Enable Global interrupt INTM
-    ERTM;  // Enable Global realtime interrupt DBGM
+    // wait for the correct number of 16-bit values to be received into the RX FIFO
+    while(SpibRegs.SPIFFRX.bit.RXFFST != 7);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1; // Slave Select High
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    //JMF read the additional number of garbage receive values off the RX FIFO to clear out the RX FIFO. We have to do this 7 times since we sent 7 values!
+    DELAY_US(10); // Delay 10us to allow time for the MPU-2950 to get ready for next transfer.
 
+    //Step 3.
+    // perform a multiple 16-bit transfer to initialize MPU-9250 registers 0x23,0x24,0x25,0x26
+    // 0x27, 0x28, 0x29. Use only one SS low to high for all these writes
+    // some code is given, most you have to fill you yourself.
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1; // Slave Select Low
 
-    // IDLE loop. Just sit and loop forever (optional):
-    while(1)
-    {
-        if (UARTPrint == 1 ) {
-            serial_printf(&SerialA,"Num Timer2:%ld Num SerialRX: %ld\r\n",CpuTimer2.InterruptCount,numRXA);
-            UARTPrint = 0;
-        }
-    }
+    // Perform the number of needed writes to SPITXBUF to write to all 7 registers
+    // To address 00x23 write 0x00
+    SpibRegs.SPITXBUF = 0x2300;
+    // To address 00x24 write 0x40
+    // To address 00x25 write 0x8C
+    SpibRegs.SPITXBUF = 0x408C;
+    // To address 00x26 write 0x02
+    // To address 00x27 write 0x88
+    SpibRegs.SPITXBUF = 0x0288;
+    // To address 00x28 write 0x0C
+    // To address 00x29 write 0x0A
+    SpibRegs.SPITXBUF = 0x0C0A;
+
+    // wait for the correct number of 16-bit values to be received into the RX FIFO
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=4);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1; // Slave Select High
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    temp = SpibRegs.SPIRXBUF;
+    // JMF read the additional number of garbage receive values off the RX FIFO to clear out the RX FIFO. We have to do this 4 times since we sent 4 values!
+    DELAY_US(10); // Delay 10us to allow time for the MPU-2950 to get ready for next transfer.
+
+    //Step 4.
+    // perform a single 16-bit transfer to initialize MPU-9250 register 0x2A
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    // Write to address 0x2A the value 0x81
+    SpibRegs.SPITXBUF = 0x2A81;
+
+    // wait for one byte to be received
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+
+    // The Remainder of this code is given to you and you do not need to make any changes.
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x3800 | 0x0001); // 0x3800
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x3A00 | 0x0001); // 0x3A00
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x6400 | 0x0001); // 0x6400
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x6700 | 0x0003); // 0x6700
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x6A00 | 0x0020); // 0x6A00
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x6B00 | 0x0001); // 0x6B00
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x7500 | 0x0071); // 0x7500
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x7700 | 0x00EB); // 0x7700
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x7800 | 0x0012); // 0x7800
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x7A00 | 0x0010); // 0x7A00
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x7B00 | 0x00FA); // 0x7B00
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x7D00 | 0x0021); // 0x7D00
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(10);
+    GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
+    SpibRegs.SPITXBUF = (0x7E00 | 0x0050); // 0x7E00
+    while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
+    GpioDataRegs.GPCSET.bit.GPIO66 = 1;
+    temp = SpibRegs.SPIRXBUF;
+    DELAY_US(50);
+
+    // Clear SPIB interrupt source just in case it was issued due to any of the above initializations.
+    SpibRegs.SPIFFRX.bit.RXFFOVFCLR=1; // Clear Overflow flag
+    SpibRegs.SPIFFRX.bit.RXFFINTCLR=1; // Clear Interrupt flag
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP6;
 }
-
-
-// SWI_isr,  Using this interrupt as a Software started interrupt
-__interrupt void SWI_isr(void) {
-
-    // These three lines of code allow SWI_isr, to be interrupted by other interrupt functions
-    // making it lower priority than all other Hardware interrupts.
-    PieCtrlRegs.PIEACK.all = PIEACK_GROUP12;
-    asm("       NOP");                    // Wait one cycle
-    EINT;                                 // Clear INTM to enable interrupts
-
-
-
-    // Insert SWI ISR Code here.......
-
-
-    numSWIcalls++;
-
-    DINT;
-
-}
-
-// cpu_timer0_isr - CPU Timer0 ISR
-__interrupt void cpu_timer0_isr(void)
-{
-    //Clear GPIO9 Low to act as a Slave Select. Right now, just to scope. Later to select DAN28027 chip
-    //JMF Clear to SS
-    GpioDataRegs.GPACLEAR.bit.GPIO9 = 1;
-    SpibRegs.SPIFFRX.bit.RXFFIL = 2; // Issue the SPIB_RX_INT when two values are in the RX FIFO
-    SpibRegs.SPITXBUF = 0x4A3B; // 0x4A3B and 0xB517 have no special meaning. Wanted to send
-    SpibRegs.SPITXBUF = 0xB517; // something so you can see the pattern on the Oscilloscope
-
-
-    CpuTimer0.InterruptCount++;
-
-    numTimer0calls++;
-
-    //    if ((numTimer0calls%50) == 0) {
-    //        PieCtrlRegs.PIEIFR12.bit.INTx9 = 1;  // Manually cause the interrupt for the SWI
-    //    }
-
-    if ((numTimer0calls%25) == 0) {
-        displayLEDletter(LEDdisplaynum);
-        LEDdisplaynum++;
-        if (LEDdisplaynum == 0xFFFF) {  // prevent roll over exception
-            LEDdisplaynum = 0;
-        }
-    }
-
-    if ((numTimer0calls%50) == 0) {
-        // Blink LaunchPad Red LED
-        GpioDataRegs.GPBTOGGLE.bit.GPIO34 = 1;
-    }
-
-
-    // Acknowledge this interrupt to receive more interrupts from group 1
-    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
-}
-
-// cpu_timer1_isr - CPU Timer1 ISR
-//JMF Used for EX2
-__interrupt void cpu_timer1_isr(void)
-{
-    //Clear GPIO9 Low to act as a Slave Select. Right now, just to scope. Later to select DAN28027 chip
-        //JMF Clear to SS
-        GpioDataRegs.GPACLEAR.bit.GPIO9 = 1;
-        SpibRegs.SPIFFRX.bit.RXFFIL = 2; // Issue the SPIB_RX_INT when two values are in the RX FIFO
-        //JMF do not read the register instead just increment a variable and pass it to the send at the end of the if statement TODO!!!!!!!!!!!!!!!!!!!
-          if (upDown == 1){
-              value = SpibRegs.SPIRXBUF;
-              SpibRegs.SPITXBUF = value + 0x10; //JMF check the hex values that this works TODO!!!!
-              if (SpibRegs.SPITXBUF == 0xBB8) {//JMF3000 in hex
-                  upDown = 0;
-              }
-          } else {
-              SpibRegs.SPITXBUF = SpibRegs.SPITXBUF - 10;
-                if (SpibRegs.SPITXBUF == 0x0) {
-                    upDown = 1;
-                }
-          }
-          //JMF need to send DA and then our incremented value TODO!!!!!!!!!!!!!!!!!!!
-        SpibRegs.SPITXBUF = 0x4A3B; // 0x4A3B and 0xB517 have no special meaning. Wanted to send
-        SpibRegs.SPITXBUF = 0xB517; // something so you can see the pattern on the Oscilloscope
-        SpibRegs.SPITXBUF = 0x46A7; //JMF here we are writing to the Dan chip 3 random values
-
-    CpuTimer1.InterruptCount++;
-}
-
-// cpu_timer2_isr CPU Timer2 ISR
-__interrupt void cpu_timer2_isr(void)
-{
-    // Blink LaunchPad Blue LED
-    GpioDataRegs.GPATOGGLE.bit.GPIO31 = 1;
-
-    CpuTimer2.InterruptCount++;
-
-    if ((CpuTimer2.InterruptCount % 10) == 0) {
-        UARTPrint = 1;
-    }
-}
-
-//JMF EX1 SPIB_isr interrupt
-//__interrupt void SPIB_isr(void)
-//{
-//    spivalue1 = SpibRegs.SPIRXBUF; // Read first 16-bit value off RX FIFO. Probably is zero since no chip
-//    spivalue2 = SpibRegs.SPIRXBUF; // Read second 16-bit value off RX FIFO. Again probably zero
-//    GpioDataRegs.GPASET.bit.GPIO9 = 1; // Set GPIO9 high to end Slave Select. Now Scope. Later to de-select DAN28027
-//    // Later when actually communicating with the DAN28027 do something with the data. Now do nothing.
-//    SpibRegs.SPIFFRX.bit.RXFFOVFCLR = 1; // Clear Overflow flag just in case of an overflow
-//    SpibRegs.SPIFFRX.bit.RXFFINTCLR = 1; // Clear RX FIFO Interrupt flag so next interrupt will happen
-//    PieCtrlRegs.PIEACK.all = PIEACK_GROUP6; // Acknowledge INT6 PIE interrupt
-//}
-
-//JMF EX2 SPIB_isr interrupt
-__interrupt void SPIB_isr(void)
-{
-    spivalue1 = SpibRegs.SPIRXBUF; // Read first 16-bit value off RX FIFO. Probably is zero since no chip
-    spivalue2 = SpibRegs.SPIRXBUF; // Read second 16-bit value off RX FIFO. Again probably zero
-    readvalue = SpibRegs.SPIRXBUF;
-
-    GpioDataRegs.GPASET.bit.GPIO9 = 1; // Set GPIO9 high to end Slave Select. Now Scope. Later to de-select DAN28027
-    // Later when actually communicating with the DAN28027 do something with the data. Now do nothing.
-    SpibRegs.SPIFFRX.bit.RXFFOVFCLR = 1; // Clear Overflow flag just in case of an overflow
-    SpibRegs.SPIFFRX.bit.RXFFINTCLR = 1; // Clear RX FIFO Interrupt flag so next interrupt will happen
-    PieCtrlRegs.PIEACK.all = PIEACK_GROUP6; // Acknowledge INT6 PIE interrupt
-}
-readvalue = SpibRegs.SPIRXBUF;
