@@ -694,41 +694,50 @@ void setupSpib(void) //Call this function in main() somewhere after the DINT; li
     temp = SpibRegs.SPIRXBUF;
     DELAY_US(10);
     GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
-    SpibRegs.SPITXBUF = (0x7700 | 0x00EB); // 0x7700
+    SpibRegs.SPITXBUF = (0x7700 | 0x0016); // 0x7700, offset for accelerometer. XA_OFFSET_H
     while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
     GpioDataRegs.GPCSET.bit.GPIO66 = 1;
     temp = SpibRegs.SPIRXBUF;
     DELAY_US(10);
     GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
-    SpibRegs.SPITXBUF = (0x7800 | 0x0012); // 0x7800
+    SpibRegs.SPITXBUF = (0x7800 | 0x001A); // 0x7800, XA_OFFSET_L
     while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
     GpioDataRegs.GPCSET.bit.GPIO66 = 1;
     temp = SpibRegs.SPIRXBUF;
     DELAY_US(10);
     GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
-    SpibRegs.SPITXBUF = (0x7A00 | 0x0010); // 0x7A00
+    SpibRegs.SPITXBUF = (0x7A00 | 0x00E1); // 0x7A00, YA_OFFSET_H
     while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
     GpioDataRegs.GPCSET.bit.GPIO66 = 1;
     temp = SpibRegs.SPIRXBUF;
     DELAY_US(10);
     GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
-    SpibRegs.SPITXBUF = (0x7B00 | 0x00FA); // 0x7B00
+    SpibRegs.SPITXBUF = (0x7B00 | 0x0022); // 0x7B00, YA_OFFSET_L
     while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
     GpioDataRegs.GPCSET.bit.GPIO66 = 1;
     temp = SpibRegs.SPIRXBUF;
     DELAY_US(10);
     GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
-    SpibRegs.SPITXBUF = (0x7D00 | 0x0021); // 0x7D00
+    SpibRegs.SPITXBUF = (0x7D00 | 0x0025); // 0x7D00,  ZA_OFFSET_H
     while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
     GpioDataRegs.GPCSET.bit.GPIO66 = 1;
     temp = SpibRegs.SPIRXBUF;
     DELAY_US(10);
     GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1;
-    SpibRegs.SPITXBUF = (0x7E00 | 0x0050); // 0x7E00
+    SpibRegs.SPITXBUF = (0x7E00 | 0x002E); // 0x7E00,  ZA_OFFSET_L
     while(SpibRegs.SPIFFRX.bit.RXFFST !=1);
     GpioDataRegs.GPCSET.bit.GPIO66 = 1;
     temp = SpibRegs.SPIRXBUF;
     DELAY_US(50);
+
+    //JMF NOTE FOR OFFSET CALIBRATION
+    // if tera z offset = 2.1
+    // 2.1 divide 0.00098 = 2143 (decimal) offset in negative needed
+    // -2143 (decimal) = F7A1 (hex)
+    // note for 16 bits, last bit is reserved. Need to leftshift value by 1: F7A1 <<1 = EF42
+    // enter EF to Z high offset, enter 42 to Z low offset
+    //We send a 16 bit number to the chip. to send these offset values we send the value 0x7DEF and 0x7E42. This is the register address and value we want to send.
+    // refer to MPU-9250-Register-Map.pdf, ZA_OFFS[14:7]
 
     // Clear SPIB interrupt source just in case it was issued due to any of the above initializations.
     SpibRegs.SPIFFRX.bit.RXFFOVFCLR=1; // Clear Overflow flag
