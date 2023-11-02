@@ -1,12 +1,3 @@
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//README!!!
-
-//BY THE WAY, WE MESSED UP RXAINT_RECV_READY IN THIS FILE ON ACCIDENT. IT NOW MATCHES LAB6 SAME FILE NAME.
-//If you need to revert to the old serial.c file, copy from a previous lab or old GitHub commit, but I do not think it was used in this lab.
-//This function that we edited on accident is the function that controls what happens when we input values into terra term to do things to the microprocessor
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
 /* SERIAL.C: This code is designed to act as a low-level serial driver for
     higher-level programming.  Ideally, one could simply call init_serial()
     to initialize the serial port, then use serial_send("data", 4) to send
@@ -43,7 +34,7 @@ uint32_t numRXD = 0;
 
 
 extern float turn;
-extern float Vref;
+extern float refVelo;
 
 uint16_t COMB_state = 0;
 uint16_t COMBLSB = 0;
@@ -90,7 +81,7 @@ uint16_t init_serialSCIA(serialSCIA_t *s, uint32_t baud)
     if (s == &SerialA) {
         sci = &SciaRegs;
         s->sci = sci;
-
+        
         init_bufferSCIA(&s->TX);
 
         GPIO_SetupPinMux(43, GPIO_MUX_CPU1, 0);
@@ -209,7 +200,7 @@ uint16_t init_serialSCIB(serialSCIB_t *s, uint32_t baud)
     if (s == &SerialB) {
         sci = &ScibRegs;
         s->sci = sci;
-
+        
         init_bufferSCIB(&s->TX);
 
         GPIO_SetupPinMux(15, GPIO_MUX_CPU1, 0);
@@ -330,7 +321,7 @@ uint16_t init_serialSCIC(serialSCIC_t *s, uint32_t baud)
     if (s == &SerialC) {
         sci = &ScicRegs;
         s->sci = sci;
-
+        
         init_bufferSCIC(&s->TX);
         GPIO_SetupPinMux(139, GPIO_MUX_CPU1, 0);
         GPIO_SetupPinOptions(139, GPIO_INPUT, GPIO_PULLUP);
@@ -448,7 +439,7 @@ uint16_t init_serialSCID(serialSCID_t *s, uint32_t baud)
     if (s == &SerialD) {
         sci = &ScidRegs;
         s->sci = sci;
-
+        
         init_bufferSCID(&s->TX);
         GPIO_SetupPinMux(105, GPIO_MUX_CPU1, 0);
         GPIO_SetupPinOptions(105, GPIO_INPUT, GPIO_PULLUP);
@@ -647,11 +638,6 @@ __interrupt void TXDINT_data_sent(void)
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP8;
 }
 
-//for SerialA
-#ifdef _FLASH
-#pragma CODE_SECTION(RXAINT_recv_ready, ".TI.ramfunc");
-#endif
-
 //This function is called each time a char is recieved over UARTA.
 //for SerialA
 #ifdef _FLASH
@@ -674,10 +660,10 @@ __interrupt void RXAINT_recv_ready(void)
         } else if (RXAdata == 'r') {
             turn = turn - 0.05;
         } else if (RXAdata == '3') {
-            Vref = Vref + 0.1;
+            refVelo = refVelo + 0.1;
         } else {
             turn = 0;
-            Vref = 0.5;
+            refVelo = 0.5;
         }
     }
     SciaRegs.SCIFFRX.bit.RXFFINTCLR = 1;
@@ -776,8 +762,6 @@ __interrupt void RXBINT_recv_ready(void)
 #ifdef _FLASH
 #pragma CODE_SECTION(RXCINT_recv_ready, ".TI.ramfunc");
 #endif
-//JMF this interrupt is edited and used to view on the oscilliscope how serial transmissions are sent to the Tera Term terminal as HIGH and LOW values
-//Corresponding to the bits that make up the characters that are sent.
 __interrupt void RXCINT_recv_ready(void)
 {
     RXCdata = ScicRegs.SCIRXBUF.all;
