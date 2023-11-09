@@ -23,6 +23,8 @@
 #define PI          3.1415926535897932384626433832795
 #define TWOPI       6.283185307179586476925286766559
 #define HALFPI      1.5707963267948966192313216916398
+#define RW          .19460
+#define WR          .56759
 // The Launchpad's CPU Frequency set to 200 you should not change this value
 #define LAUNCHPAD_CPU_FREQUENCY 200
 
@@ -98,7 +100,7 @@ float PosRightCur = 0.0;
 float VLeftCur = 0.0;
 float VRightCur = 0.0;
 
-float refVelo = 1.0;
+float refVelo = 0.0;
 //JMF Current error
 float ek_L = 0.0;
 float ek_R = 0.0;
@@ -118,6 +120,34 @@ uint16_t Ki = 15; //integral gain
 uint16_t Kturn = 3; //turn error gain
 float et = 0.0; //turn error
 float turn = 0.0; //turn reference that is sent (desired turn)
+
+float printLV3 = 0;
+float printLV4 = 0;
+float printLV5 = 0;
+float printLV6 = 0;
+float printLV7 = 0;
+float printLV8 = 0;
+float x = 0;
+float y = 0;
+float bearing = 0;
+extern uint16_t NewLVData;
+extern float fromLVvalues[LVNUM_TOFROM_FLOATS];
+extern LVSendFloats_t DataToLabView;
+extern char LVsenddata[LVNUM_TOFROM_FLOATS*4+2];
+extern uint16_t newLinuxCommands;
+extern float LinuxCommands[CMDNUM_FROM_FLOATS];
+uint32_t numTimer2calls = 0;
+float theta_L = 0.0;
+float theta_R = 0.0;
+float theta_avg = 0.0;
+float theta_dot_avg = 0.0;
+float x_dot = 0.0;
+float y_dot = 0.0;
+float x_dot_prev = 0.0;
+float y_dot_prev = 0.0;
+float theta_R_prev = 0.0;
+float theta_L_prev = 0.0;
+
 
 void main(void)
 {
@@ -404,7 +434,8 @@ void main(void)
             //            serial_printf(&SerialA, "X_ACCEL:%.3f(g) Y_ACCEL:%.3f(g) Z_ACCEL:%.3f(g) \r\nX_GYRO:%.3f(deg per sec) Y_GYRO:%.3f(deg per sec) Z_GYRO %.3fdeg per sec(deg per sec)\r\n\n",scldXAccel, scldYAccel, scldZAccel, scldXGyro, scldYGyro, scldZGyro);
             //            serial_printf(&SerialA, "Wheel (L,R) %.3f %.3f\r\n",LeftWheel, RightWheel); //Lab6 Ex1
             //JMF Print current velocity of the two wheels
-            serial_printf(&SerialA, "Wheel velocity (L,R) %.3f %.3f\r\n",VLeftCur, VRightCur); //Lab6 Ex2
+//            serial_printf(&SerialA, "Wheel velocity (L,R) %.3f %.3f\r\n",VLeftCur, VRightCur); //Lab6 Ex2
+            serial_printf(&SerialA, "X= %.3f Y= %.3f bearing= %.3f\r\n",x, y, bearing);
             UARTPrint = 0;
         }
     }
@@ -601,12 +632,13 @@ __interrupt void cpu_timer2_isr(void)
     GpioDataRegs.GPATOGGLE.bit.GPIO31 = 1;
 
     CpuTimer2.InterruptCount++;
+    numTimer2calls++;
 
-    //JMF store rad/s value of the wheels rotation
+    //JMF store rad value of the wheels rotation
     LeftWheel = readEncLeft();
     RightWheel = readEncRight();
 
-    //Turn rad/s into ft/s
+    //Turn rad into ft
     PosLeftCur = LeftWheel*leftFoot;
     PosRightCur = RightWheel*rightFoot;
 
@@ -667,6 +699,57 @@ __interrupt void cpu_timer2_isr(void)
     //    if ((CpuTimer2.InterruptCount % 10) == 0) {
     //        UARTPrint = 1;
     //    }
+
+    //WIFI Commuications:
+    if (NewLVData == 1) {
+        NewLVData = 0;
+        refVelo = fromLVvalues[0];
+        turn = fromLVvalues[1];
+        printLV3 = fromLVvalues[2];
+        printLV4 = fromLVvalues[3];
+        printLV5 = fromLVvalues[4];
+        printLV6 = fromLVvalues[5];
+        printLV7 = fromLVvalues[6];
+        printLV8 = fromLVvalues[7];
+    }
+
+    theta_L = LeftWheel;
+    theta_R = RightWheel;
+    bearing = (RW/WR) * (theta_R - theta_L);
+    theta_avg = 0.5* (theta_R + theta_L);
+    theta_dot_avg = 0.5 * ((theta_L - theta_L_prev)/.004 + (theta_R - theta_R_prev)/.004);
+    theta_L_prev = theta_L;
+    theta_R_prev = theta_R;
+    x_dot = RW*theta_dot_avg*cos(bearing);
+    y_dot = RW*theta_dot_avg*sin(bearing);
+    x = x + (x_dot + x_dot_prev)/2*.004;
+    y = y + (y_dot + y_dot_prev)/2*.004;
+    x_dot_prev = x_dot;
+    y_dot_prev = y_dot;
+
+
+
+    if((numTimer2calls%62) == 0) { // change to the counter variable of you selected 4ms. timer
+        DataToLabView.floatData[0] = x;
+        DataToLabView.floatData[1] = y;
+        DataToLabView.floatData[2] = bearing;
+        DataToLabView.floatData[3] = 2.0*((float)numTimer0calls)*.001;
+        DataToLabView.floatData[4] = 3.0*((float)numTimer0calls)*.001;
+        DataToLabView.floatData[5] = (float)numTimer0calls;
+        DataToLabView.floatData[6] = (float)numTimer0calls*4.0;
+        DataToLabView.floatData[7] = (float)numTimer0calls*5.0;
+        LVsenddata[0] = '*'; // header for LVdata
+        LVsenddata[1] = '$';
+        for (int i=0;i<LVNUM_TOFROM_FLOATS*4;i++) {
+            if (i%2==0) {
+                LVsenddata[i+2] = DataToLabView.rawData[i/2] & 0xFF;
+            } else {
+                LVsenddata[i+2] = (DataToLabView.rawData[i/2]>>8) & 0xFF;
+            }
+        }
+        serial_sendSCID(&SerialD, LVsenddata, 4*LVNUM_TOFROM_FLOATS + 2);
+    }
+
 }
 
 
