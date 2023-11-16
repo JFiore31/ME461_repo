@@ -533,7 +533,7 @@ void main(void)
         if (UARTPrint == 1 ) {
             //prints the useful information from our filter that is then also shown on the oscilloscope as a reconstructed waveform after using setDAC()
 			//serial_printf(&SerialA,"Num Timer2:%ld Num SerialRX: %ld\r\n",CpuTimer2.InterruptCount,numRXA);
-            //serial_printf(&SerialA,"Channel 1: %.3f, Channel 0: %.3f\r\n",ADCIND1Volts,yk);
+            serial_printf(&SerialA,"Channel 1: %.3f, Channel 0: %.3f\r\n",ADCIND1Volts,yk);
             //yk2 is Y direction, yk1 is X direction
             //serial_printf(&SerialA,"Channel 1 (X hat): %.3f, Channel 0 (Y hat): %.3f\r\n",yk1,yk2);
             //ex4
