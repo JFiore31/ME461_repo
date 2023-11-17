@@ -570,7 +570,7 @@ float readEncLeft(void) {
     // 100 slits in the encoder disk so 100 square waves per one revolution of the
     // DC motor's back shaft. Then Quadrature Decoder mode multiplies this by 4 so 400 counts per one rev
     // of the DC motor's back shaft. Then the gear motor's gear ratio is 30:1.
-    // 1200 counts per 1 wheel spin, ?count * (2pi (rad) / (400*30) (counts)) = ?rad
+    // 1200 counts per 1 wheel spin, ?count * (2pi (rad) / (400*30) (counts)) = ?rad. We want to return rad
     return -1*(raw*(2*PI)/12000.0);
 }
 float readEncRight(void) {
@@ -700,7 +700,7 @@ __interrupt void cpu_timer2_isr(void)
     //        UARTPrint = 1;
     //    }
 
-    //WIFI Commuications:
+    //JMF WIFI Commuications through Labview used to control robot:
     if (NewLVData == 1) {
         NewLVData = 0;
         refVelo = fromLVvalues[0];
@@ -806,6 +806,7 @@ __interrupt void SPIB_isr(void)
 }
 
 void setupSpib(void) //Call this function in main() somewhere after the DINT; line of code.
+//JMF this only needs to be called once to set up SPI communication with MPU chip.
 {
     int16_t temp = 0;
     //Step 1.
@@ -869,6 +870,7 @@ void setupSpib(void) //Call this function in main() somewhere after the DINT; li
     GpioDataRegs.GPCCLEAR.bit.GPIO66 = 1; // Slave Select Low
 
     // Perform the number of needed writes to SPITXBUF to write to all 13 registers. Remember we are sending 16-bit transfers, so two registers at a time after the first 16-bit transfer.
+   //JMF below are set the correct send values to each regigister we want to transmit to.
     // To address 00x13 write 0x00
     SpibRegs.SPITXBUF = 0x1300;
     // To address 00x14 write 0x00
@@ -893,6 +895,7 @@ void setupSpib(void) //Call this function in main() somewhere after the DINT; li
     // wait for the correct number of 16-bit values to be received into the RX FIFO
     while(SpibRegs.SPIFFRX.bit.RXFFST != 7);
     GpioDataRegs.GPCSET.bit.GPIO66 = 1; // Slave Select High
+    //JMF temp used go read off the recieve FIFO
     temp = SpibRegs.SPIRXBUF;
     temp = SpibRegs.SPIRXBUF;
     temp = SpibRegs.SPIRXBUF;
